@@ -1,0 +1,15 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  name        String
+  price       Float
+  canteen     String   
+  isAvailable Boolean  @default(true)
+}
