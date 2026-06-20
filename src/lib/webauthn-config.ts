@@ -1,4 +1,4 @@
-export const rpName = 'CampusByte Authenticator';
+export const rpName = 'CampusBytes Authenticator';
 
 export const getRpID = (req: Request) => {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost';

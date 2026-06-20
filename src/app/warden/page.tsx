@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { toast } from 'sonner';
 
 interface Warden {
   id: number;
@@ -32,7 +33,7 @@ export default function WardenDashboard() {
   // Auth state
   const [warden, setWarden] = useState<Warden | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [currentDate, setCurrentDate] = useState('');
+  const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Metrics
   const [metrics, setMetrics] = useState({ breakfast: 0, lunch: 0, dinner: 0, total: 0 });
@@ -46,51 +47,13 @@ export default function WardenDashboard() {
   // Token Verification
   const [scannedToken, setScannedToken] = useState('');
   const [tokenResult, setTokenResult] = useState<any>(null);
-  const [tokenVerifyError, setTokenVerifyError] = useState('');
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
 
   // Manual Check-in
   const [searchId, setSearchId] = useState('');
   const [searchStudent, setSearchStudent] = useState<Student | null>(null);
   const [searchRedemptions, setSearchRedemptions] = useState<Redemption[]>([]);
-  const [searchError, setSearchError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-
-  // Messages
-  const [successMsg, setSuccessMsg] = useState('');
-
-  // Check auth and set date
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setCurrentDate(today);
-
-    async function checkAuth() {
-      try {
-        const res = await fetch('/api/auth/warden/check');
-        const data = await res.json();
-        if (res.ok && data.authenticated) {
-          setWarden(data.warden);
-          fetchMetrics(today);
-        } else {
-          router.push('/warden/login');
-        }
-      } catch (err) {
-        router.push('/warden/login');
-      } finally {
-        setCheckingAuth(false);
-      }
-    }
-    checkAuth();
-  }, []);
-
-  // Poll metrics every 15 seconds to keep dashboard updated
-  useEffect(() => {
-    if (!warden || !currentDate) return;
-    const interval = setInterval(() => {
-      fetchMetrics(currentDate);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [warden, currentDate]);
 
   const fetchMetrics = async (date: string) => {
     try {
@@ -105,6 +68,36 @@ export default function WardenDashboard() {
     }
   };
 
+  // Check auth and set date
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/warden/check');
+        const data = await res.json();
+        if (res.ok && data.authenticated) {
+          setWarden(data.warden);
+          fetchMetrics(currentDate);
+        } else {
+          router.push('/warden/login');
+        }
+      } catch (err) {
+        router.push('/warden/login');
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, [router, currentDate]);
+
+  // Poll metrics every 15 seconds to keep dashboard updated
+  useEffect(() => {
+    if (!warden || !currentDate) return;
+    const interval = setInterval(() => {
+      fetchMetrics(currentDate);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [warden, currentDate]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/warden/logout', { method: 'POST' });
     router.push('/warden/login');
@@ -112,7 +105,6 @@ export default function WardenDashboard() {
 
   const autoVerifyToken = async (token: string) => {
     setIsVerifyingToken(true);
-    setTokenVerifyError('');
     setTokenResult(null);
 
     try {
@@ -125,7 +117,7 @@ export default function WardenDashboard() {
       if (!res.ok) throw new Error(data.error || 'Verification failed');
       setTokenResult(data);
     } catch (err: any) {
-      setTokenVerifyError(err.message);
+      toast.error(err.message || 'Verification failed');
     } finally {
       setIsVerifyingToken(false);
     }
@@ -152,26 +144,24 @@ export default function WardenDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setSuccessMsg(`Checked in for ${tokenResult.mealName}`);
+      toast.success(`Checked in for ${tokenResult.mealName}`);
       setTokenResult(null);
       setScannedToken('');
       setConfirmingCode(null);
       fetchMetrics(currentDate);
-      setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
-      alert(err.message || 'Check-in failed');
+      toast.error(err.message || 'Check-in failed');
     }
   };
 
   const handleStudentSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchId || searchId.length !== 5) {
-      setSearchError('Enter a valid 5-digit Student ID.');
+      toast.error('Enter a valid 5-digit Student ID.');
       return;
     }
 
     setIsSearching(true);
-    setSearchError('');
     setSearchStudent(null);
     setSearchRedemptions([]);
 
@@ -182,7 +172,7 @@ export default function WardenDashboard() {
       setSearchStudent(data.student);
       setSearchRedemptions(data.redemptions);
     } catch (err: any) {
-      setSearchError(err.message);
+      toast.error(err.message || 'Search failed');
     } finally {
       setIsSearching(false);
     }
@@ -205,11 +195,10 @@ export default function WardenDashboard() {
         setSearchRedemptions(lookupData.redemptions);
       }
 
-      setSuccessMsg(`Checked in for ${slot === '01' ? 'Breakfast' : slot === '02' ? 'Lunch' : 'Dinner'}`);
+      toast.success(`Checked in for ${slot === '01' ? 'Breakfast' : slot === '02' ? 'Lunch' : 'Dinner'}`);
       fetchMetrics(currentDate);
-      setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
-      alert(err.message || 'Direct redemption failed');
+      toast.error(err.message || 'Direct redemption failed');
     }
   };
 
@@ -246,12 +235,6 @@ export default function WardenDashboard() {
           </div>
         </div>
 
-        {successMsg && (
-          <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-900 text-emerald-400 text-sm font-bold text-center animate-fade-in shadow-lg">
-            {successMsg}
-          </div>
-        )}
-
         {/* TWO COLUMN GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* VERIFICATIONS & MANUAL REDEMPTIONS */}
@@ -269,7 +252,6 @@ export default function WardenDashboard() {
                     setIsScanning(false);
                     setConfirmingCode(null);
                     setTokenResult(null);
-                    setTokenVerifyError('');
                   }}
                   className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
@@ -296,7 +278,6 @@ export default function WardenDashboard() {
                         type="button"
                         onClick={() => {
                           setTokenResult(null);
-                          setTokenVerifyError('');
                           setConfirmingCode(null);
                           setIsScanning(true);
                         }}
@@ -384,12 +365,6 @@ export default function WardenDashboard() {
                 </form>
               )}
 
-              {tokenVerifyError && (
-                <p className="text-sm text-red-100 font-medium bg-red-950/50 border border-red-900 p-4 rounded-xl text-center">
-                  {tokenVerifyError}
-                </p>
-              )}
-
               {tokenResult && (
                 <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4 animate-fade-in">
                   <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
@@ -450,12 +425,6 @@ export default function WardenDashboard() {
                   {isSearching ? '...' : 'Search'}
                 </button>
               </form>
-
-              {searchError && (
-                <p className="text-sm text-red-100 font-medium bg-red-950/50 border border-red-900 p-4 rounded-xl text-center">
-                  {searchError}
-                </p>
-              )}
 
               {searchStudent && (
                 <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 space-y-5 animate-fade-in">

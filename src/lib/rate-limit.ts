@@ -14,6 +14,14 @@ export async function checkRateLimit(
 ): Promise<{ success: boolean; limit: number; remaining: number; resetAt: number }> {
   const now = Date.now();
 
+  // Background garbage collection: 5% chance to delete expired rows
+  // This runs asynchronously and won't slow down the user's request
+  if (Math.random() < 0.05) {
+    prisma.rateLimit.deleteMany({
+      where: { resetAt: { lt: now } }
+    }).catch(err => console.error('Failed to cleanup rate limits:', err));
+  }
+
   try {
     // Try to find existing rate limit record
     const existing = await prisma.rateLimit.findUnique({

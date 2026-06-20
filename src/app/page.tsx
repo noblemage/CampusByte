@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import { toast } from 'sonner';
 
 interface Student {
   studentId: number;
@@ -19,7 +20,7 @@ interface Redemption {
 }
 
 export default function Home() {
-  const [currentDate, setCurrentDate] = useState('');
+  const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [isSecureEnv, setIsSecureEnv] = useState(true);
 
   // --- Student Auth States ---
@@ -28,7 +29,6 @@ export default function Home() {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [studentName, setStudentName] = useState('');
-  const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // --- Student Dashboard States ---
@@ -42,10 +42,11 @@ export default function Home() {
   const [hasBiometrics, setHasBiometrics] = useState(false);
 
   useEffect(() => {
-    setCurrentDate(new Date().toISOString().split('T')[0]);
-    setIsSecureEnv(window.isSecureContext && !!navigator.credentials);
-    const savedId = localStorage.getItem('studentId');
-    if (savedId) setStudentIdInput(savedId);
+    setTimeout(() => {
+      setIsSecureEnv(window.isSecureContext && !!navigator.credentials);
+      const savedId = localStorage.getItem('studentId');
+      if (savedId) setStudentIdInput(savedId);
+    }, 0);
   }, []);
 
   // Compute codes removed - now handled by the server API
@@ -67,8 +68,28 @@ export default function Home() {
       setQrUrls(urls);
     }
     if (studentMealCodes.length > 0) generateQRs();
-    else setQrUrls({});
+    else setTimeout(() => setQrUrls(prev => Object.keys(prev).length > 0 ? {} : prev), 0);
   }, [studentMealCodes]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/students?id=${studentIdInput}&date=${currentDate}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setActiveStudent(data.student);
+      setStudentRedemptions(data.redemptions);
+      setHasBiometrics(!!data.hasBiometrics);
+      setStudentMealCodes(data.mealCodes || []);
+      setAuthStep('logged_in');
+    } catch (err) {
+      toast.error('Could not load dashboard data.');
+    }
+  }, [studentIdInput, currentDate]);
+
+  const isSlotRedeemed = (slot: string, redemptionList: Redemption[]) => {
+    return redemptionList.some((r) => r.mealSlot === slot);
+  };
 
   // Poll dashboard data when QR code is selected to catch live redemptions
   useEffect(() => {
@@ -84,17 +105,16 @@ export default function Home() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate]);
+  }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate, fetchDashboardData]);
 
   // --- Student Auth Methods ---
   const handleCheckId = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentIdInput || studentIdInput.length !== 5) {
-      setAuthError('Please enter a valid 5-digit Student ID.');
+      toast.error('Please enter a valid 5-digit Student ID.');
       return;
     }
     setIsAuthenticating(true);
-    setAuthError('');
     try {
       const res = await fetch(`/api/auth/check?id=${studentIdInput}`);
       const data = await res.json();
@@ -110,7 +130,7 @@ export default function Home() {
         setAuthStep('setup_password');
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Verification failed. Please try again.');
+      toast.error(err.message || 'Verification failed. Please try again.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -119,7 +139,6 @@ export default function Home() {
   const handleSetupPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
-    setAuthError('');
     try {
       const res = await fetch(`/api/auth/setup-password`, {
         method: 'POST',
@@ -130,7 +149,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       await fetchDashboardData();
     } catch (err: any) {
-      setAuthError(err.message || 'Setup failed.');
+      toast.error(err.message || 'Setup failed.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -139,7 +158,6 @@ export default function Home() {
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
-    setAuthError('');
     try {
       const res = await fetch(`/api/auth/login`, {
         method: 'POST',
@@ -150,15 +168,15 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       await fetchDashboardData();
     } catch (err: any) {
-      setAuthError(err.message || 'Login failed.');
+      toast.error(err.message || 'Login failed.');
     } finally {
       setIsAuthenticating(false);
     }
   };
 
   const handleBiometricLogin = async () => {
+    if (!hasBiometrics) return;
     setIsAuthenticating(true);
-    setAuthError('');
     try {
       const optRes = await fetch(`/api/auth/webauthn/generate-authentication`, {
         method: 'POST',
@@ -185,7 +203,8 @@ export default function Home() {
 
       await fetchDashboardData();
     } catch (err: any) {
-      setAuthError(err.message || 'Biometric login failed.');
+      console.error(err);
+      toast.error(err.message || 'Biometric login failed.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -226,20 +245,7 @@ export default function Home() {
     }
   };
 
-  const fetchDashboardData = async () => {
-    try {
-      const res = await fetch(`/api/students?id=${studentIdInput}&date=${currentDate}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setActiveStudent(data.student);
-      setStudentRedemptions(data.redemptions);
-      setHasBiometrics(!!data.hasBiometrics);
-      setStudentMealCodes(data.mealCodes || []);
-      setAuthStep('logged_in');
-    } catch (err) {
-      setAuthError('Could not load dashboard data.');
-    }
-  };
+
 
   const handleStudentLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -252,37 +258,13 @@ export default function Home() {
     setHasBiometrics(false);
   };
 
-  const isSlotRedeemed = (slot: string, redemptionList: Redemption[]) => {
-    return redemptionList.some((r) => r.mealSlot === slot);
-  };
-
   // --- Components ---
-  const SecuritySetupBlock = () => {
-    return (
-      <div className="glass-card p-6 rounded-2xl flex flex-col items-center text-center border border-zinc-800 bg-zinc-900/50 space-y-4">
-        <div className="space-y-1">
-          <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-            Passwordless Login
-          </h4>
-          <p className="text-sm text-zinc-400">
-            {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : (hasBiometrics ? 'You have registered this device for instant login.' : 'Register this device to sign in instantly next time.')}
-          </p>
-        </div>
-        <button onClick={handleRegisterBiometric} disabled={isRegisteringBiometric || !isSecureEnv} className={`w-full max-w-sm px-4 py-3 rounded-xl text-sm font-bold transition-all ${!isSecureEnv ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white cursor-pointer'}`}>
-          {isRegisteringBiometric ? 'Registering...' : (hasBiometrics ? 'Re-register Device' : 'Register Device')}
-        </button>
-        {biometricMessage && <p className="text-sm text-zinc-100 font-medium bg-zinc-800 border border-zinc-600 px-4 py-2 rounded-lg w-full max-w-sm mt-2">{biometricMessage}</p>}
-      </div>
-    );
-  };
 
   return (
     <main className={`min-h-screen bg-zinc-950 pb-24 text-zinc-100 relative overflow-hidden font-sans ${authStep !== 'logged_in' ? 'flex flex-col justify-center items-center' : ''}`}>
 
-
       {/* --- STUDENT PORTAL --- */}
-      <section className={`w-full px-4 ${authStep !== 'logged_in' ? 'max-w-md' : 'max-w-md md:max-w-4xl mx-auto mt-8'}`}>
+      <section className={`w-full px-4 ${authStep !== 'logged_in' ? 'max-w-md animate-float' : 'max-w-md md:max-w-4xl mx-auto mt-8'}`}>
 
         {authStep === 'id' && (
           <div className="glass-card max-w-md mx-auto w-full p-8 rounded-2xl space-y-6 text-left shadow-xl">
@@ -292,7 +274,6 @@ export default function Home() {
             </div>
             <form onSubmit={handleCheckId} className="space-y-4">
               <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={5} placeholder="Student ID" value={studentIdInput} onChange={(e) => setStudentIdInput(e.target.value.replace(/\D/g, ''))} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 px-4 text-base focus:border-zinc-500 font-medium text-center text-zinc-100" required />
-              {authError && <p className="text-xs text-zinc-100 font-medium bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg text-center">{authError}</p>}
               <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Checking...' : 'Continue'}</button>
             </form>
           </div>
@@ -320,7 +301,6 @@ export default function Home() {
                   )}
                 </button>
               </div>
-              {authError && <p className="text-xs text-zinc-100 font-medium bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg text-center">{authError}</p>}
               <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Saving...' : 'Save & Sign In'}</button>
             </form>
           </div>
@@ -346,7 +326,6 @@ export default function Home() {
                   )}
                 </button>
               </div>
-              {authError && <p className="text-xs text-zinc-100 font-medium bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg text-center">{authError}</p>}
               <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Logging in...' : 'Sign In'}</button>
             </form>
 
@@ -418,7 +397,23 @@ export default function Home() {
               <button onClick={handleStudentLogout} className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-300 hover:text-white text-xs font-bold transition-colors relative z-10 cursor-pointer">Sign Out</button>
             </div>
 
-            {!hasBiometrics && <SecuritySetupBlock />}
+            {!hasBiometrics && (
+              <div className="glass-card p-6 rounded-2xl flex flex-col items-center text-center border border-zinc-800 bg-zinc-900/50 space-y-4">
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                    Passwordless Login
+                  </h4>
+                  <p className="text-sm text-zinc-400">
+                    {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : 'Register this device to sign in instantly next time.'}
+                  </p>
+                </div>
+                <button onClick={handleRegisterBiometric} disabled={isRegisteringBiometric || !isSecureEnv} className={`w-full max-w-sm px-4 py-3 rounded-xl text-sm font-bold transition-all ${!isSecureEnv ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white cursor-pointer'}`}>
+                  {isRegisteringBiometric ? 'Registering...' : 'Register Device'}
+                </button>
+                {biometricMessage && <p className="text-sm text-zinc-100 font-medium bg-zinc-800 border border-zinc-600 px-4 py-2 rounded-lg w-full max-w-sm mt-2">{biometricMessage}</p>}
+              </div>
+            )}
 
             {activeStudent.paidStatus !== 1 ? (
               <div className="bg-zinc-900 border border-zinc-700 p-8 rounded-2xl text-center space-y-4 shadow-xl max-w-lg mx-auto">
@@ -473,7 +468,8 @@ export default function Home() {
                               className={`p-2 bg-zinc-100 rounded-xl shadow-md ${!redeemed && 'cursor-pointer hover:scale-105 transition-transform'
                                 }`}
                             >
-                              <img src={qrUrl} className="w-20 h-20 md:w-full md:h-auto md:max-w-[160px] pointer-events-none" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={qrUrl} alt="QR Pass" className="w-20 h-20 md:w-full md:h-auto md:max-w-[160px] pointer-events-none" />
                             </button>
                           )}
                         </div>
@@ -484,7 +480,25 @@ export default function Home() {
               </div>
             )}
 
-            {hasBiometrics && <div className="pt-8"><SecuritySetupBlock /></div>}
+            {hasBiometrics && (
+              <div className="pt-8">
+                <div className="glass-card p-6 rounded-2xl flex flex-col items-center text-center border border-zinc-800 bg-zinc-900/50 space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                      Passwordless Login
+                    </h4>
+                    <p className="text-sm text-zinc-400">
+                      {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : (hasBiometrics ? 'You have registered this device for instant login.' : 'Register this device to sign in instantly next time.')}
+                    </p>
+                  </div>
+                  <button onClick={handleRegisterBiometric} disabled={isRegisteringBiometric || !isSecureEnv} className={`w-full max-w-sm px-4 py-3 rounded-xl text-sm font-bold transition-all ${!isSecureEnv ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white cursor-pointer'}`}>
+                    {isRegisteringBiometric ? 'Registering...' : (hasBiometrics ? 'Re-register Device' : 'Register Device')}
+                  </button>
+                  {biometricMessage && <p className="text-sm text-zinc-100 font-medium bg-zinc-800 border border-zinc-600 px-4 py-2 rounded-lg w-full max-w-sm mt-2">{biometricMessage}</p>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -512,7 +526,8 @@ export default function Home() {
                       <p className="text-sm text-zinc-400 mt-1">Show to scanner.</p>
                     </div>
                     <div className="flex justify-center bg-zinc-100 p-4 rounded-2xl shadow-inner mx-auto max-w-[240px]">
-                      <img src={selectedQrCode.url} className="w-full h-auto pointer-events-none" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selectedQrCode.url} alt="Large QR Pass" className="w-full h-auto aspect-square" />
                     </div>
                     <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800">
                       <p className="text-xs text-zinc-500 font-bold mb-2">Hash Code</p>

@@ -15,9 +15,11 @@ const pixelFont = Zen_Dots({
 });
 
 export const metadata: Metadata = {
-  title: "CampusByte - Smart Student Dining and Counter Pre-Ordering",
-  description: "Browse live canteen counters, monitor queue traffic load, pre-order meals, and get instant pickup slips at your college campus.",
+  title: "CampusBytes.",
+  description: "",
 };
+
+import { Toaster } from 'sonner';
 
 export default function RootLayout({
   children,
@@ -28,6 +30,7 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body className={`${outfit.variable} ${pixelFont.variable} antialiased`}>
         <Providers>{children}</Providers>
+        <Toaster position="top-center" theme="dark" richColors />
       </body>
     </html>
   );

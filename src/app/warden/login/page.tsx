@@ -2,24 +2,23 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export default function WardenLoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
-      setError('Fill all fields.');
+      toast.error('Fill all fields.');
       return;
     }
 
     setIsLoading(true);
-    setError('');
 
     try {
       const res = await fetch('/api/auth/warden/login', {
@@ -35,7 +34,7 @@ export default function WardenLoginPage() {
 
       router.push('/warden');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      toast.error(err.message || 'Something went wrong.');
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +42,8 @@ export default function WardenLoginPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-4 relative text-zinc-100 overflow-hidden font-sans">
-      <div className="glass-card max-w-md w-full p-10 rounded-3xl space-y-8 shadow-2xl border border-zinc-800 animate-fade-in">
+
+      <div className="glass-card max-w-md w-full p-10 rounded-3xl space-y-8 shadow-2xl border border-zinc-800 animate-fade-in animate-float">
         <div className="text-center space-y-3 border-b border-zinc-800 pb-6">
           <h2 className="text-2xl font-bold text-zinc-100">Warden Login.</h2>
           <p className="text-sm text-zinc-400">Sign in to access dashboard.</p>
@@ -82,12 +82,6 @@ export default function WardenLoginPage() {
               )}
             </button>
           </div>
-
-          {error && (
-            <p className="text-sm text-red-100 font-medium bg-red-950/50 border border-red-900 px-4 py-3 rounded-lg text-center">
-              {error}
-            </p>
-          )}
 
           <button
             type="submit"
