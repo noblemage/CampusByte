@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   const authenticator = student.authenticators.find(
-    auth => auth.credentialID === response.id
+    (auth: any) => auth.credentialID === response.id
   );
 
   if (!authenticator) {
