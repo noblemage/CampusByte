@@ -26,9 +26,9 @@ export async function GET(request: Request) {
       orderBy: { redeemedAt: 'desc' }
     });
 
-    const breakfastCount = redemptionsToday.filter(r => r.mealSlot === '01').length;
-    const lunchCount = redemptionsToday.filter(r => r.mealSlot === '02').length;
-    const dinnerCount = redemptionsToday.filter(r => r.mealSlot === '03').length;
+    const breakfastCount = redemptionsToday.filter((r: any) => r.mealSlot === '01').length;
+    const lunchCount = redemptionsToday.filter((r: any) => r.mealSlot === '02').length;
+    const dinnerCount = redemptionsToday.filter((r: any) => r.mealSlot === '03').length;
 
     return NextResponse.json({
       date: dateStr,
