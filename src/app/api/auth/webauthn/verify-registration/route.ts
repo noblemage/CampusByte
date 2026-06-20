@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const verification = await verifyRegistrationResponse({
       response: body,
       expectedChallenge: student.currentWebAuthnChallenge,
-      expectedOrigin: getOrigin(request),
+      expectedOrigin: request.headers.get('origin') || getOrigin(request),
       expectedRPID: getRpID(request),
     });
 

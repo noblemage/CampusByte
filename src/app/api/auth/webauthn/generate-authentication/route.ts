@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       id: auth.credentialID,
       type: 'public-key',
     })),
-    userVerification: 'required',
+    userVerification: 'preferred',
   });
 
   await prisma.student.update({

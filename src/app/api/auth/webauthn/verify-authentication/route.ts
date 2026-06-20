@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   });
 
   if (!student || !student.currentWebAuthnChallenge) {
+    console.error("WebAuthn Verify Error: Invalid student or no active challenge");
     return NextResponse.json({ error: "Invalid student or no active challenge" }, { status: 400 });
   }
 
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   );
 
   if (!authenticator) {
+    console.error(`WebAuthn Verify Error: Authenticator not found for ID ${response.id}`);
     return NextResponse.json({ error: "Authenticator not found" }, { status: 400 });
   }
 
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: student.currentWebAuthnChallenge,
-      expectedOrigin: getOrigin(request),
+      expectedOrigin: request.headers.get('origin') || getOrigin(request),
       expectedRPID: getRpID(request),
       credential: {
         id: authenticator.credentialID,
