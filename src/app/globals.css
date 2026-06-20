@@ -156,3 +156,14 @@ body {
   }
 }
 
+/* Ensure toast notifications hug the text on mobile instead of taking full width */
+@media (max-width: 600px) {
+  [data-sonner-toaster] [data-sonner-toast] {
+    width: fit-content !important;
+    max-width: calc(100vw - 32px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
