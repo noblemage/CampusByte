@@ -561,8 +561,8 @@ export default function WardenDashboard() {
         </div>
       </section>
 
-      <footer className="mt-12 w-full text-center">
-        <p className="text-lg font-normal font-pixel text-white">CampusByte.</p>
+      <footer className="w-full text-center py-6 mt-8">
+        <p className="text-lg font-normal font-pixel text-zinc-600">CampysBytes.</p>
       </footer>
     </main>
   );

@@ -56,10 +56,11 @@ export default function Home() {
   const [biometricMessage, setBiometricMessage] = useState('');
   const [hasBiometrics, setHasBiometrics] = useState(false);
 
-  // Set date on client & check secure context
   useEffect(() => {
     setCurrentDate(new Date().toISOString().split('T')[0]);
     setIsSecureEnv(window.isSecureContext && !!navigator.credentials);
+    const savedId = localStorage.getItem('studentId');
+    if (savedId) setStudentIdInput(savedId);
   }, []);
 
   // Compute codes
@@ -137,6 +138,7 @@ export default function Home() {
       setStudentName(data.name);
       setPasswordInput('');
       setShowPassword(false);
+      localStorage.setItem('studentId', studentIdInput);
       if (data.hasPasswordSet) {
         setAuthStep('password');
       } else {
@@ -344,7 +346,13 @@ export default function Home() {
             <form onSubmit={handleSetupPassword} className="space-y-4">
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} placeholder="New Password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-4 pr-12 text-base focus:border-zinc-500 text-zinc-100 font-medium" required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-4 text-zinc-400 hover:text-zinc-200 text-xs font-bold">{showPassword ? 'Hide' : 'Show'}</button>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[1.1rem] text-zinc-400 hover:text-zinc-200 cursor-pointer">
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" /><path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" /><path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" /></svg>
+                  )}
+                </button>
               </div>
               {authError && <p className="text-xs text-zinc-100 font-medium bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg text-center">{authError}</p>}
               <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Saving...' : 'Save & Sign In'}</button>
@@ -364,7 +372,13 @@ export default function Home() {
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} placeholder="Password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-4 pr-12 text-base focus:border-zinc-500 text-zinc-100 font-medium" required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-4 text-zinc-400 hover:text-zinc-200 text-xs font-bold">{showPassword ? 'Hide' : 'Show'}</button>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[1.1rem] text-zinc-400 hover:text-zinc-200 cursor-pointer">
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" /><path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" /><path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" /></svg>
+                  )}
+                </button>
               </div>
               {authError && <p className="text-xs text-zinc-100 font-medium bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg text-center">{authError}</p>}
               <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Logging in...' : 'Sign In'}</button>
@@ -548,7 +562,7 @@ export default function Home() {
       </section>
 
       <footer className="absolute bottom-6 w-full text-center">
-        <p className="text-lg font-normal font-pixel text-white">CampusByte.</p>
+        <p className="text-lg font-normal font-pixel text-zinc-600">CampysBytes.</p>
       </footer>
     </main>
   );
