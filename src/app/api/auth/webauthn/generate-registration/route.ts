@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     userID: new Uint8Array(Buffer.from(student.studentId.toString())),
     userName: student.name,
     attestationType: 'none',
-    excludeCredentials: student.authenticators.map(auth => ({
+    excludeCredentials: student.authenticators.map((auth: any) => ({
       id: auth.credentialID,
       type: 'public-key',
     })),
