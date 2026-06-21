@@ -1,5 +1,5 @@
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 generator client {
@@ -13,7 +13,7 @@ model Student {
   passwordHash             String?
   currentWebAuthnChallenge String?
   authenticators           Authenticator[]
-  MealRedemption           MealRedemption[]
+  mealRedemptions          MealRedemption[]
 }
 
 model Authenticator {
@@ -48,8 +48,3 @@ model Warden {
   redemptions  MealRedemption[]
 }
 
-model RateLimit {
-  key     String @id
-  count   Int
-  resetAt Float
-}

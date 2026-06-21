@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getSession, getWardenSession } from '@/lib/auth';
-import { checkRateLimit, getIp } from '@/lib/rate-limit';
+
 
 function generateHMAC(data: string): string {
   const secret = process.env.QR_SECRET;
@@ -13,13 +13,6 @@ function generateHMAC(data: string): string {
 // GET /api/students?id=XXXXX&date=YYYY-MM-DD
 export async function GET(request: Request) {
   try {
-    const ip = getIp(request);
-    const { success } = await checkRateLimit(ip, 20, 60 * 1000); // 20 requests per minute
-    
-    if (!success) {
-      return NextResponse.json({ error: "Rate limit exceeded. Please try again later." }, { status: 429 });
-    }
-
     const { searchParams } = new URL(request.url);
     const idStr = searchParams.get('id');
     const dateStr = searchParams.get('date'); // e.g. "2026-06-18"

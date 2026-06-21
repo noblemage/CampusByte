@@ -1,65 +1,52 @@
-import { prisma } from '@/lib/prisma';
+import { Redis } from '@upstash/redis';
+import { Ratelimit, type Duration } from '@upstash/ratelimit';
+
+// Cache for dynamic limiters so we only create each config once per cold start
+const limiters = new Map<string, Ratelimit>();
+
+function getLimiter(limit: number, windowMs: number): Ratelimit {
+  const windowSecs = Math.max(1, Math.floor(windowMs / 1000));
+  const id = `${limit}-${windowSecs}s`;
+
+  if (!limiters.has(id)) {
+    const window: Duration = `${windowSecs} s`;
+    const limiter = new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(limit, window),
+      analytics: false,
+    });
+    limiters.set(id, limiter);
+  }
+
+  return limiters.get(id)!;
+}
 
 /**
- * Database-backed rate limiter that works correctly on serverless platforms.
- * 
- * Uses the RateLimit table in PostgreSQL to persist counters across
- * Vercel function invocations, unlike in-memory Maps which reset
- * every time a new serverless instance spins up.
+ * High-performance Redis-backed rate limiter using Upstash.
+ * Replaces the legacy PostgreSQL/Prisma implementation.
+ *
+ * Requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in .env
  */
 export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ success: boolean; limit: number; remaining: number; resetAt: number }> {
-  const now = Date.now();
-
-  // Background garbage collection: 5% chance to delete expired rows
-  // This runs asynchronously and won't slow down the user's request
-  if (Math.random() < 0.05) {
-    prisma.rateLimit.deleteMany({
-      where: { resetAt: { lt: now } }
-    }).catch(err => console.error('Failed to cleanup rate limits:', err));
-  }
-
   try {
-    // Try to find existing rate limit record
-    const existing = await prisma.rateLimit.findUnique({
-      where: { key }
-    });
-
-    if (!existing || now > existing.resetAt) {
-      // No record or window expired — create/reset
-      await prisma.rateLimit.upsert({
-        where: { key },
-        update: { count: 1, resetAt: now + windowMs },
-        create: { key, count: 1, resetAt: now + windowMs }
-      });
-      return { success: true, limit, remaining: limit - 1, resetAt: now + windowMs };
-    }
-
-    if (existing.count >= limit) {
-      return { success: false, limit, remaining: 0, resetAt: existing.resetAt };
-    }
-
-    // Increment counter
-    await prisma.rateLimit.update({
-      where: { key },
-      data: { count: existing.count + 1 }
-    });
+    const ratelimit = getLimiter(limit, windowMs);
+    const result = await ratelimit.limit(key);
 
     return {
-      success: true,
-      limit,
-      remaining: limit - (existing.count + 1),
-      resetAt: existing.resetAt,
+      success: result.success,
+      limit: result.limit,
+      remaining: result.remaining,
+      resetAt: result.reset,
     };
   } catch (error) {
     // If the database is unreachable, fail open (allow the request)
-    // but log the error. This prevents the rate limiter from
-    // accidentally locking out all users during a DB outage.
-    console.error('Rate limit check failed:', error);
-    return { success: true, limit, remaining: limit, resetAt: now + windowMs };
+    // but log the error. This prevents locking out all users during an Upstash outage.
+    console.error('Upstash rate limit check failed:', error);
+    return { success: true, limit, remaining: limit, resetAt: Date.now() + windowMs };
   }
 }
 

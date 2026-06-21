@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Zen_Dots } from "next/font/google";
+import { Toaster } from 'sonner';
 import "./globals.css";
 import Providers from "@/providers";
 
@@ -16,10 +17,9 @@ const pixelFont = Zen_Dots({
 
 export const metadata: Metadata = {
   title: "CampusBytes.",
-  description: "",
+  description: "Student mess management and meal verification system.",
 };
 
-import { Toaster } from 'sonner';
 
 export default function RootLayout({
   children,

@@ -1,41 +1,50 @@
 # CampusBytes
 
-A lightweight hostel mess verification system built to make student check-ins faster and more secure. 
+Our hostel used paper logs for mess check-ins. This replaces that.
 
-Instead of manual paper logs, this project uses QR code scanning and biometric authentication (like Face ID or Touch ID) to verify students at the mess quickly.
+Students show up, scan a QR code, the warden verifies & we are done.
 
-## Features
+## What it does
 
-- **Biometric Check-ins**: Secure, passwordless authentication using WebAuthn.
-- **QR Code Scanning**: Built-in QR scanner for quick student ID verification.
-- **Student Dashboard**: A simple interface for students to manage their account and passkeys.
-- **Admin Tools**: Straightforward monitoring and management of daily mess check-ins.
+- Students sign in with a password or a passkey (Face ID / fingerprint, whatever their phone supports)
+- Every day, each student gets a fresh QR pass for each meal slot.
+- The warden scans it or looks up a student manually to check them in
+- There's a live dashboard that tracks how many meals have been served and logs every check-in
 
-## Tech Stack
+## Security stuff
 
-- **Framework**: Next.js 
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: WebAuthn (SimpleWebAuthn) & JWTs
-- **Styling**: Tailwind CSS 
+- QR passes are cryptographically signed (HMAC-SHA256) and expire daily, so you can't screenshot someone else's pass or reuse an old one
+- Passwords are bcrypt-hashed
+- Sessions are JWTs in http-only cookies — JavaScript can't touch them
+- Every API endpoint is rate-limited via Upstash Redis, blocked at the edge before requests even reach the server
+- Scanning the same pass twice physically cannot create a duplicate entry — the database rejects it at the constraint level
 
-## Getting Started
+## Stack
+
+- Next.js 16 (App Router)
+- PostgreSQL on Supabase with Prisma
+- SimpleWebAuthn for passkeys
+- Upstash Redis for rate limiting
+- Tailwind CSS v4
+
+## Running locally
 
 1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Set up your environment variables (you'll need a PostgreSQL database URL).
-
-3. Generate the Prisma client and push the schema to your database:
-   ```bash
-   npx prisma generate
-   npx prisma db push
+2. Create a `.env` file with:
+   ```
+   DATABASE_URL=
+   JWT_SECRET=
+   QR_SECRET=
+   UPSTASH_REDIS_REST_URL=
+   UPSTASH_REDIS_REST_TOKEN=
    ```
 
-4. Start the development server:
+3. Push the schema and start the dev server:
    ```bash
+   npx prisma db push
    npm run dev
    ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the app.
