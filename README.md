@@ -20,7 +20,7 @@ If you just want to poke around without setting up a database, the app has a bui
 - We specifically left student `10003` unregistered. Try logging in with `10003` to see the password setup flow. It pretends to register you but doesn't actually touch the database, so the next visitor can try it too.
 - Want to host this yourself to show it off? Run `npx prisma db seed`. It wipes the database and sets up these exact demo accounts.
 
-**Want to turn the demo off?** Just remove `NEXT_PUBLIC_ENABLE_DEMO_MODE="true"` from your `.env` file. All the demo helpers disappear and it runs like a real, secure production app.
+**Want to turn the demo off?** Just remove `NEXT_PUBLIC_ENABLE_DEMO_MODE="true"` from your `.env` file.
 
 ## Under the hood (Security)
 
