@@ -297,7 +297,7 @@ export default function Home() {
                 <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Checking...' : 'Continue'}</button>
               </form>
             </div>
-            
+
             {/* Demo Helper */}
             {process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true' && (
               <div className="glass-card max-w-md mx-auto w-full mt-4 p-6 rounded-2xl space-y-4 text-center shadow-xl border border-zinc-800">
@@ -313,7 +313,7 @@ export default function Home() {
                 </div>
                 <div className="pt-2 border-t border-zinc-800/50">
                   <a href="/warden/login" className="text-xs text-zinc-400 hover:text-zinc-200 font-medium transition-colors inline-flex items-center gap-1">
-                    Try Warden Dashboard Demo 
+                    Try Warden Dashboard Demo
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                   </a>
                 </div>
@@ -325,38 +325,38 @@ export default function Home() {
         {authStep === 'setup_password' && (
           <>
             <div className="glass-card max-w-md mx-auto w-full p-8 rounded-2xl space-y-6 text-left shadow-xl">
-            <div className="border-b border-zinc-800 pb-4">
-              <h3 className="text-xl font-bold text-zinc-100">Create Password</h3>
-              <p className="text-sm text-zinc-400 mt-2">Setup Password.</p>
-              <ul className="text-xs text-zinc-400 mt-4 space-y-1.5 font-medium bg-zinc-900 p-4 rounded-xl border border-zinc-800">
-                <li>• At least 8 characters</li>
-                <li>• Include letters & numbers</li>
-                <li>• Include 1 special character (!@#$)</li>
-              </ul>
-            </div>
-            <form onSubmit={handleSetupPassword} className="space-y-4">
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} placeholder="New Password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-4 pr-12 text-base focus:border-zinc-500 text-zinc-100 font-medium" required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[1.1rem] text-zinc-400 hover:text-zinc-200 cursor-pointer">
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" /><path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" /><path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" /></svg>
-                  )}
-                </button>
+              <div className="border-b border-zinc-800 pb-4">
+                <h3 className="text-xl font-bold text-zinc-100">Create Password</h3>
+                <p className="text-sm text-zinc-400 mt-2">Setup Password.</p>
+                <ul className="text-xs text-zinc-400 mt-4 space-y-1.5 font-medium bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+                  <li>• At least 8 characters</li>
+                  <li>• Include letters & numbers</li>
+                  <li>• Include 1 special character (!@#$)</li>
+                </ul>
               </div>
-              <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Saving...' : 'Save & Sign In'}</button>
-            </form>
-          </div>
-
-          {/* Demo Helper */}
-          {process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true' && (
-            <div className="glass-card max-w-md mx-auto w-full mt-4 p-6 rounded-2xl space-y-2 text-center shadow-xl border border-zinc-800">
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Demo Password</p>
-              <button type="button" onClick={() => setPasswordInput('password123')} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-4 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Quick Fill (password123)</button>
+              <form onSubmit={handleSetupPassword} className="space-y-4">
+                <div className="relative">
+                  <input type={showPassword ? "text" : "password"} placeholder="New Password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-4 pr-12 text-base focus:border-zinc-500 text-zinc-100 font-medium" required />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[1.1rem] text-zinc-400 hover:text-zinc-200 cursor-pointer">
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" /><path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" /><path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" /></svg>
+                    )}
+                  </button>
+                </div>
+                <button type="submit" disabled={isAuthenticating} className="w-full btn-zinc font-bold text-sm py-4 rounded-xl">{isAuthenticating ? 'Saving...' : 'Save & Sign In'}</button>
+              </form>
             </div>
-          )}
-        </>
+
+            {/* Demo Helper */}
+            {process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true' && (
+              <div className="glass-card max-w-md mx-auto w-full mt-4 p-6 rounded-2xl space-y-2 text-center shadow-xl border border-zinc-800">
+                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Demo Password</p>
+                <button type="button" onClick={() => setPasswordInput('password123')} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-4 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Quick Fill (password123)</button>
+              </div>
+            )}
+          </>
         )}
 
         {authStep === 'password' && (
@@ -569,11 +569,11 @@ export default function Home() {
         {selectedQrCode && (() => {
           const isRedeemed = isSlotRedeemed(selectedQrCode.slot, studentRedemptions);
           return (
-            <div 
+            <div
               className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-sm flex items-center justify-center p-4"
               onClick={() => setSelectedQrCode(null)}
             >
-              <div 
+              <div
                 className="glass-card max-w-sm w-full p-8 rounded-3xl text-center space-y-6 relative border border-zinc-800 shadow-2xl overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -612,12 +612,10 @@ export default function Home() {
       </section>
 
       {/* Project Info Card Centered Overlay */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm transition-all duration-300 ${
-        showInfoCard ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-      }`}>
-        <div className={`max-w-md w-full bg-zinc-900/90 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-left transform transition-all duration-300 ${
-          showInfoCard ? 'translate-y-0 scale-100 animate-float' : 'translate-y-4 scale-95'
+      <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm transition-all duration-300 ${showInfoCard ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}>
+        <div className={`max-w-md w-full bg-zinc-900/90 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-left transform transition-all duration-300 ${showInfoCard ? 'translate-y-0 scale-100 animate-float' : 'translate-y-4 scale-95'
+          }`}>
           {/* Header */}
           <div className="flex justify-between items-start mb-5 border-b border-zinc-800 pb-3">
             <h4 className="text-sm font-bold text-zinc-100">
@@ -641,28 +639,32 @@ export default function Home() {
               <ul className="space-y-2.5 text-xs text-zinc-100 leading-relaxed font-medium">
                 <li className="flex items-start gap-2">
                   <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>The login pages have &apos;Quick Fill&apos; buttons so you don&apos;t even have to type.</span>
+                  <span>The login pages have &apos;Quick Fill&apos; buttons for accessing predetermined Demo Accounts.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>Try logging in as a paid student (10001), an unpaid student (10002), or the warden (warden_demo).</span>
+                  <span>You can login in as a paid student, an unpaid student, or an unregistered student.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>We specifically left student 10003 unregistered. Try logging in with 10003 to see the password setup flow.</span>
+                  <span>We set up 10003 for you to see the password setup flow.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-zinc-100 text-sm leading-none">•</span>
+                  <span>Head to the Warden Portal and access it using the warden_demo Autofill.</span>
                 </li>
               </ul>
             </div>
-            
+
             {/* Action Close Button */}
             <div className="pt-4 border-t border-zinc-800/60">
-              <button 
+              <button
                 onClick={() => {
                   setShowInfoCard(false);
                 }}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold py-3.5 rounded-xl transition-colors cursor-pointer text-center"
               >
-                Got it, let&apos;s start!
+                Understood.
               </button>
             </div>
           </div>
