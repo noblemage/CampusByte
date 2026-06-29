@@ -52,14 +52,8 @@ export default function Home() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (window.location.search.includes('reset-demo=true')) {
-        localStorage.removeItem('cb-demo-card-dismissed');
-      }
-      const dismissed = localStorage.getItem('cb-demo-card-dismissed');
-      if (!dismissed) {
-        setShowInfoCard(true);
-      }
-    }, 2500);
+      setShowInfoCard(true);
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -665,7 +659,6 @@ export default function Home() {
               <button 
                 onClick={() => {
                   setShowInfoCard(false);
-                  localStorage.setItem('cb-demo-card-dismissed', 'true');
                 }}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold py-3.5 rounded-xl transition-colors cursor-pointer text-center"
               >
