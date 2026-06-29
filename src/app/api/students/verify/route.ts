@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getWardenSession } from '@/lib/auth';
+import { getLocalDate } from '@/lib/timezone';
 
 // Helper to generate HMAC-SHA256 hash
 function generateHMAC(data: string): string {
@@ -26,11 +27,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing token to verify" }, { status: 400 });
     }
 
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getLocalDate();
 
     // Check if token is a raw code (contains dashes and has the studentId format)
     const rawCodePattern = /^\d{5}-\d{4}-\d{2}-\d{2}-\d{2}$/;
-    
+
     let studentId = 0;
     let mealSlot = '';
     let isRawCode = false;
@@ -44,37 +45,43 @@ export async function POST(request: Request) {
       mealSlot = parts[4];
       computedHash = generateHMAC(token);
     } else {
-      // It is likely a 64-char hex HMAC token. We need to find which student and slot it corresponds to.
-      // Search all students. (In a real system with thousands of students, we could index or use a prefix,
-      // but scanning all students is extremely fast in SQLite for typical campus sizes).
-      const allStudents = await prisma.student.findMany();
-      
       let foundMatch = false;
 
-      for (const student of allStudents) {
-        // Only generate for paid students to optimize and enforce payment
-        if (student.paidStatus !== 1) continue;
+      // OPTIMIZED O(1) LOOKUP: Check if the token is prefixed with a student ID (e.g., "10001:hash")
+      if (token.includes(':')) {
+        const parts = token.split(':');
+        const sId = parseInt(parts[0], 10);
+        const hashPart = parts[1];
 
-        const slots = ['01', '02', '03'];
-        for (const slot of slots) {
-          const rawString = `${student.studentId}-${targetDate}-${slot}`;
-          const hashVal = generateHMAC(rawString);
-          
-          if (hashVal === token) {
-            studentId = student.studentId;
-            mealSlot = slot;
-            computedHash = hashVal;
-            foundMatch = true;
-            break;
+        if (!isNaN(sId) && hashPart) {
+          const student = await prisma.student.findUnique({
+            where: { studentId: sId }
+          });
+
+          if (student && student.paidStatus === 1) {
+            const slots = ['01', '02', '03'];
+            for (const slot of slots) {
+              const rawString = `${student.studentId}-${targetDate}-${slot}`;
+              const hashVal = generateHMAC(rawString);
+
+              if (hashVal === hashPart) {
+                studentId = student.studentId;
+                mealSlot = slot;
+                computedHash = hashVal;
+                foundMatch = true;
+                break;
+              }
+            }
           }
         }
-        if (foundMatch) break;
       }
 
+
+
       if (!foundMatch) {
-        return NextResponse.json({ 
-          valid: false, 
-          error: "Invalid token or code doesn't match any paid student for this date." 
+        return NextResponse.json({
+          valid: false,
+          error: "Invalid token or code doesn't match any paid student for this date."
         }, { status: 404 });
       }
     }

@@ -33,7 +33,7 @@ export default function WardenDashboard() {
   // Auth state
   const [warden, setWarden] = useState<Warden | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [currentDate, setCurrentDate] = useState(() => new Date().toLocaleDateString('sv'));
 
   // Metrics
   const [metrics, setMetrics] = useState({ breakfast: 0, lunch: 0, dinner: 0, total: 0 });
@@ -60,6 +60,7 @@ export default function WardenDashboard() {
   const [menuLunch, setMenuLunch] = useState('');
   const [menuDinner, setMenuDinner] = useState('');
   const [isSavingMenu, setIsSavingMenu] = useState(false);
+  const [isCopyingMenu, setIsCopyingMenu] = useState(false);
 
   const fetchMetrics = async (date: string) => {
     try {
@@ -136,7 +137,33 @@ export default function WardenDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
-      setTokenResult(data);
+      
+      // Auto-Redeem if the pass is valid
+      if (data.valid && !data.redeemed) {
+        const redeemRes = await fetch('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: data.student.studentId,
+            date: currentDate,
+            mealSlot: data.mealSlot
+          })
+        });
+        const redeemData = await redeemRes.json();
+        if (!redeemRes.ok) throw new Error(redeemData.error);
+
+        toast.success(`Automatically checked in ${data.student.name} for ${data.mealName}`);
+        
+        // Reset scanner automatically for the next person
+        setTokenResult(null);
+        setScannedToken('');
+        setConfirmingCode(null);
+        if (verificationMethod === 'camera') setIsScanning(true);
+        fetchMetrics(currentDate);
+      } else {
+        // If it's invalid or already redeemed, show the error UI
+        setTokenResult(data);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Verification failed');
     } finally {
@@ -219,7 +246,7 @@ export default function WardenDashboard() {
       toast.success(`Checked in for ${slot === '01' ? 'Breakfast' : slot === '02' ? 'Lunch' : 'Dinner'}`);
       fetchMetrics(currentDate);
     } catch (err: any) {
-      toast.error(err.message || 'Direct redemption failed');
+      toast.error(err.message || 'Check-in failed.');
     }
   };
 
@@ -244,6 +271,34 @@ export default function WardenDashboard() {
       toast.error(err.message || 'Error saving menu');
     } finally {
       setIsSavingMenu(false);
+    }
+  };
+
+  const handleCopyYesterdayMenu = async () => {
+    setIsCopyingMenu(true);
+    try {
+      const current = new Date(currentDate);
+      current.setDate(current.getDate() - 1);
+      const yesterdayStr = current.toLocaleDateString('sv');
+
+      const res = await fetch(`/api/warden/menu?date=${yesterdayStr}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.menu && (data.menu.breakfast || data.menu.lunch || data.menu.dinner)) {
+          setMenuBreakfast(data.menu.breakfast || '');
+          setMenuLunch(data.menu.lunch || '');
+          setMenuDinner(data.menu.dinner || '');
+          toast.success("Yesterday's menu copied.");
+        } else {
+          toast.info("No menu was found for yesterday.");
+        }
+      } else {
+        toast.error("Failed to fetch yesterday's menu.");
+      }
+    } catch (err) {
+      toast.error("Error fetching yesterday's menu.");
+    } finally {
+      setIsCopyingMenu(false);
     }
   };
 
@@ -340,7 +395,7 @@ export default function WardenDashboard() {
                           onScan={(result) => {
                             if (result && result.length > 0) {
                               setIsScanning(false);
-                              setConfirmingCode(result[0].rawValue);
+                              autoVerifyToken(result[0].rawValue);
                             }
                           }}
                           onError={(error) => console.error("Scanner Error:", error?.message)}
@@ -369,18 +424,7 @@ export default function WardenDashboard() {
                     </div>
                   )}
 
-                  {confirmingCode && !tokenResult && !isVerifyingToken && (
-                    <div className="space-y-6 animate-fade-in">
-                      <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 text-center space-y-3">
-                        <p className="text-sm text-zinc-400 font-bold">Scanned Pass Hash</p>
-                        <p className="text-sm font-mono text-zinc-200 break-all">{confirmingCode}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <button onClick={() => { setConfirmingCode(null); setIsScanning(true); }} className="w-1/3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl py-4 text-sm font-bold border border-zinc-700 cursor-pointer transition-colors">Discard</button>
-                        <button onClick={() => { autoVerifyToken(confirmingCode); }} className="w-2/3 bg-zinc-200 text-zinc-900 hover:bg-white rounded-xl py-4 text-sm font-bold shadow-lg cursor-pointer transition-colors">Authorize Pass</button>
-                      </div>
-                    </div>
-                  )}
+
 
                   {isVerifyingToken && (
                     <div className="p-10 text-center bg-zinc-950 rounded-2xl border border-zinc-800">
@@ -425,18 +469,18 @@ export default function WardenDashboard() {
                   {tokenResult.valid && !tokenResult.redeemed ? (
                     <div className="space-y-4 pt-2">
                       <p className="text-sm text-emerald-400 font-bold text-center">
-                        Pass is valid and ready for redemption.
+                        Pass is valid and ready for check-in.
                       </p>
                       <button
                         onClick={handleRedeemToken}
                         className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-base font-bold py-4 rounded-xl shadow-lg transition-colors cursor-pointer"
                       >
-                        Approve Meal
+                        Approve Check-in
                       </button>
                     </div>
                   ) : (
                     <p className="text-sm text-red-100 font-medium bg-red-950/50 border border-red-900 p-4 rounded-xl text-center mt-2">
-                      {tokenResult.redeemed ? 'This pass has already been redeemed.' : 'Invalid or expired hash.'}
+                      {tokenResult.redeemed ? 'This pass has already been checked in.' : 'Invalid or expired hash.'}
                     </p>
                   )}
                   <div className="pt-2 text-center">
@@ -496,7 +540,7 @@ export default function WardenDashboard() {
                           <div key={slot} className="flex justify-between items-center p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
                             <span className="text-sm font-bold text-zinc-100">{label}</span>
                             {redeemed ? (
-                              <span className="text-xs text-zinc-500 font-bold uppercase px-4 py-2">Redeemed</span>
+                              <span className="text-xs text-zinc-500 font-bold uppercase px-4 py-2">Checked In</span>
                             ) : (
                               <button
                                 onClick={() => handleDirectRedeem(searchStudent.studentId, slot)}
@@ -516,44 +560,54 @@ export default function WardenDashboard() {
 
             {/* TODAY'S MENU */}
             <div className="glass-card p-8 rounded-3xl border border-zinc-800 shadow-lg space-y-6">
-              <h3 className="text-xl font-bold text-zinc-100">Today&apos;s Menu</h3>
-              <form onSubmit={handleSaveMenu} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-zinc-400 block">Breakfast</label>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-zinc-100">Daily Menu Manager</h3>
+                <button
+                  type="button"
+                  onClick={handleCopyYesterdayMenu}
+                  disabled={isCopyingMenu}
+                  className="text-xs bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer"
+                >
+                  {isCopyingMenu ? 'Copying' : "Copy Yesterday"}
+                </button>
+              </div>
+              <form onSubmit={handleSaveMenu} className="space-y-3">
+                <div className="flex flex-row items-center gap-4 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-1">
+                  <label className="text-sm font-bold text-zinc-400 w-20">Breakfast</label>
                   <input
                     type="text"
                     placeholder="e.g. Idli, Sambar, Chutney"
                     value={menuBreakfast}
                     onChange={(e) => setMenuBreakfast(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-5 py-4 text-base font-bold text-zinc-100 placeholder-zinc-600 focus:border-zinc-500"
+                    className="flex-1 bg-transparent border-none py-3 text-sm font-bold text-zinc-100 placeholder-zinc-600 focus:outline-none"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-zinc-400 block">Lunch</label>
+                <div className="flex flex-row items-center gap-4 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-1">
+                  <label className="text-sm font-bold text-zinc-400 w-20">Lunch</label>
                   <input
                     type="text"
                     placeholder="e.g. Rice, Dal, Chapati, Paneer"
                     value={menuLunch}
                     onChange={(e) => setMenuLunch(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-5 py-4 text-base font-bold text-zinc-100 placeholder-zinc-600 focus:border-zinc-500"
+                    className="flex-1 bg-transparent border-none py-3 text-sm font-bold text-zinc-100 placeholder-zinc-600 focus:outline-none"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-zinc-400 block">Dinner</label>
+                <div className="flex flex-row items-center gap-4 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-1">
+                  <label className="text-sm font-bold text-zinc-400 w-20">Dinner</label>
                   <input
                     type="text"
                     placeholder="e.g. Fried Rice, Manchurian"
                     value={menuDinner}
                     onChange={(e) => setMenuDinner(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-5 py-4 text-base font-bold text-zinc-100 placeholder-zinc-600 focus:border-zinc-500"
+                    className="flex-1 bg-transparent border-none py-3 text-sm font-bold text-zinc-100 placeholder-zinc-600 focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isSavingMenu}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-8 py-4 rounded-xl text-base font-bold transition-colors cursor-pointer mt-2"
+                  className="w-full bg-zinc-200 hover:bg-white text-zinc-900 px-8 py-3 rounded-xl text-sm font-bold shadow-lg transition-colors cursor-pointer mt-4"
                 >
-                  {isSavingMenu ? 'Saving...' : 'Save Menu'}
+                  {isSavingMenu ? 'Publishing...' : 'Publish Menu'}
                 </button>
               </form>
             </div>
@@ -564,12 +618,12 @@ export default function WardenDashboard() {
           <div className="glass-card p-8 rounded-3xl border border-zinc-800 shadow-lg space-y-6 flex flex-col h-full min-h-[500px]">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
               <h3 className="text-xl font-bold text-zinc-100">Audit Log</h3>
-              <span className="text-xs text-zinc-900 font-bold bg-zinc-200 px-3 py-1 rounded-md">Live</span>
+              <span className="text-xs text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-900 px-3 py-1 rounded-md">Live</span>
             </div>
 
             <div className="space-y-4 overflow-y-auto flex-1 max-h-[600px] pr-2">
               {recentRedemptions.length === 0 ? (
-                <p className="text-sm text-zinc-500 text-center py-12 font-medium">No redemptions logged today.</p>
+                <p className="text-sm text-zinc-500 text-center py-12 font-medium">No check-ins logged today.</p>
               ) : (
                 recentRedemptions.map((item) => {
                   const label = item.mealSlot === '01' ? 'Breakfast' : item.mealSlot === '02' ? 'Lunch' : 'Dinner';

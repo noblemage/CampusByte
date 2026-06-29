@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import QRCode from 'qrcode';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { toast } from 'sonner';
@@ -12,15 +12,11 @@ interface Student {
 }
 
 interface Redemption {
-  id: number;
-  studentId: number;
-  date: string;
   mealSlot: string;
-  redeemedAt: string;
 }
 
 export default function Home() {
-  const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [currentDate, setCurrentDate] = useState(() => new Date().toLocaleDateString('sv'));
   const [isSecureEnv, setIsSecureEnv] = useState(true);
 
   // --- Student Auth States ---
@@ -67,7 +63,8 @@ export default function Home() {
       for (const item of studentMealCodes) {
         if (!item.hash) continue;
         try {
-          const url = await QRCode.toDataURL(item.hash, {
+          const payload = `${studentIdInput}:${item.hash}`;
+          const url = await QRCode.toDataURL(payload, {
             margin: 1, width: 220,
             color: { dark: '#09090b', light: '#ffffff' }
           });
@@ -80,7 +77,12 @@ export default function Home() {
     else setTimeout(() => setQrUrls(prev => Object.keys(prev).length > 0 ? {} : prev), 0);
   }, [studentMealCodes]);
 
+  // Ref to prevent duplicate in-flight fetchDashboardData calls (Opt 5)
+  const isFetchingDashboard = useRef(false);
+
   const fetchDashboardData = useCallback(async () => {
+    if (isFetchingDashboard.current) return; // deduplicate concurrent calls
+    isFetchingDashboard.current = true;
     try {
       const res = await fetch(`/api/students?id=${studentIdInput}&date=${currentDate}`);
       const data = await res.json();
@@ -102,6 +104,20 @@ export default function Home() {
       setAuthStep('logged_in');
     } catch (err) {
       toast.error('Could not load dashboard data.');
+    } finally {
+      isFetchingDashboard.current = false;
+    }
+  }, [studentIdInput, currentDate]);
+
+  // Lightweight polling — only fetches mealSlot status, not the full dashboard (Opt 2)
+  const fetchRedemptions = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/students/redemptions?id=${studentIdInput}&date=${currentDate}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setStudentRedemptions(data.redemptions || []);
+    } catch (err) {
+      // Fail silently — polling errors shouldn't toast the user
     }
   }, [studentIdInput, currentDate]);
 
@@ -109,21 +125,21 @@ export default function Home() {
     return redemptionList.some((r) => r.mealSlot === slot);
   };
 
-  // Poll dashboard data when QR code is selected to catch live redemptions
+  // Poll lightweight redemptions endpoint when QR code is expanded (Opt 2)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (selectedQrCode) {
       const isRedeemed = isSlotRedeemed(selectedQrCode.slot, studentRedemptions);
       if (!isRedeemed) {
         interval = setInterval(() => {
-          fetchDashboardData();
-        }, 1500); // 1.5s fast polling
+          fetchRedemptions();
+        }, 500);
       }
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate, fetchDashboardData]);
+  }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate, fetchRedemptions]);
 
   // Close QR modal on Escape key press
   useEffect(() => {
@@ -475,7 +491,7 @@ export default function Home() {
                 <div className="space-y-1">
                   <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                    Passwordless Login
+                    Passkey Sign-In
                   </h4>
                   <p className="text-sm text-zinc-400">
                     {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : 'Register this device to sign in instantly next time.'}
@@ -489,9 +505,9 @@ export default function Home() {
             )}
 
             {activeStudent.paidStatus !== 1 ? (
-              <div className="bg-zinc-900 border border-zinc-700 p-8 rounded-2xl text-center space-y-4 shadow-xl max-w-lg mx-auto">
-                <h4 className="text-base font-bold text-zinc-100">Access Suspended</h4>
-                <p className="text-sm text-zinc-400">Mess fee pending. Clear dues to access passes.</p>
+              <div className="bg-red-950/40 border border-red-900 p-8 rounded-2xl text-center space-y-4 shadow-xl max-w-lg mx-auto">
+                <h4 className="text-base font-bold text-red-100">Access Suspended</h4>
+                <p className="text-sm text-red-200/70">Mess fee pending. Clear dues to access passes.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -523,12 +539,12 @@ export default function Home() {
                               ? 'bg-zinc-900 text-zinc-500 border border-zinc-800'
                               : 'bg-emerald-950/40 text-emerald-400 border border-emerald-900'
                               }`}>
-                              {redeemed ? 'Redeemed' : 'Active'}
+                              {redeemed ? 'Checked In' : 'Active'}
                             </span>
                           </div>
                           {!redeemed && (
                             <span className="text-xs text-zinc-500 font-medium block">
-                              Tap QR to zoom
+                              Tap to View Pass
                             </span>
                           )}
                         </div>
@@ -562,10 +578,10 @@ export default function Home() {
                   <div className="space-y-1">
                     <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                      Passwordless Login
+                      Passkey Sign-In
                     </h4>
                     <p className="text-sm text-zinc-400">
-                      {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : (hasBiometrics ? 'You have registered this device for instant login.' : 'Register this device to sign in instantly next time.')}
+                      {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : (hasBiometrics ? 'You have registered this device for instant sign-in.' : 'Register this device to sign in instantly next time.')}
                     </p>
                   </div>
                   <button onClick={handleRegisterBiometric} disabled={isRegisteringBiometric || !isSecureEnv} className={`w-full max-w-sm px-4 py-3 rounded-xl text-sm font-bold transition-all ${!isSecureEnv ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white cursor-pointer'}`}>
@@ -597,7 +613,7 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     </div>
-                    <h4 className="text-2xl font-bold text-zinc-100">Pass Redeemed.</h4>
+                    <h4 className="text-2xl font-bold text-zinc-100">Checked In.</h4>
                     <p className="text-sm text-zinc-400">Pass verified.</p>
                     <button onClick={() => setSelectedQrCode(null)} className="w-full mt-6 bg-zinc-100 hover:bg-white text-zinc-950 text-sm font-bold py-4 rounded-xl transition-colors cursor-pointer">Back to Dashboard</button>
                   </div>
@@ -627,64 +643,66 @@ export default function Home() {
       </section>
 
       {/* Project Info Card Centered Overlay */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm transition-all duration-300 ${showInfoCard ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}>
-        <div className={`max-w-md w-full bg-zinc-900/90 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-left transform transition-all duration-300 ${showInfoCard ? 'translate-y-0 scale-100 animate-float' : 'translate-y-4 scale-95'
+      {process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true' && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm transition-all duration-300 ${showInfoCard ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}>
-          {/* Header */}
-          <div className="flex justify-between items-start mb-5 border-b border-zinc-800 pb-3">
-            <h4 className="text-sm font-bold text-zinc-100">
-              This is a live demo
-            </h4>
-          </div>
-
-          {/* Content */}
-          <div className="space-y-4">
-            {/* Overview / Introduction */}
-            <div className="space-y-1">
-              <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Overview</h5>
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                This platform features two integrated systems: a <span className="text-zinc-100 font-semibold">Student Portal</span> for viewing mess menus and retrieving QR food passes, and a <span className="text-zinc-100 font-semibold">Warden Portal</span> for scanning and verifying active student QR passes to record food distribution.
-              </p>
+          <div className={`max-w-md w-full bg-zinc-900/90 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-left transform transition-all duration-300 ${showInfoCard ? 'translate-y-0 scale-100 animate-float' : 'translate-y-4 scale-95'
+            }`}>
+            {/* Header */}
+            <div className="flex justify-between items-start mb-5 border-b border-zinc-800 pb-3">
+              <h4 className="text-sm font-bold text-zinc-100">
+                This is a live demo
+              </h4>
             </div>
 
-            {/* Demo Instructions */}
-            <div className="space-y-2.5 pt-3 border-t border-zinc-800/60">
-              <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Demo Instructions</h5>
-              <ul className="space-y-2.5 text-xs text-zinc-100 leading-relaxed font-medium">
-                <li className="flex items-start gap-2">
-                  <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>The login pages have &apos;Quick Fill&apos; buttons for accessing predetermined Demo Accounts.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>You can login in as a paid student, an unpaid student, or an unregistered student.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>We set up 10003 for you to see the password setup flow.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-zinc-100 text-sm leading-none">•</span>
-                  <span>Head to the Warden Portal and access it using the warden_demo Autofill.</span>
-                </li>
-              </ul>
-            </div>
+            {/* Content */}
+            <div className="space-y-4">
+              {/* Overview / Introduction */}
+              <div className="space-y-1">
+                <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Overview</h5>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  This platform features two integrated systems: a <span className="text-zinc-100 font-semibold">Student Portal</span> for viewing mess menus and retrieving QR food passes, and a <span className="text-zinc-100 font-semibold">Warden Portal</span> for scanning and verifying active student QR passes to record food distribution.
+                </p>
+              </div>
 
-            {/* Action Close Button */}
-            <div className="pt-4 border-t border-zinc-800/60">
-              <button
-                onClick={() => {
-                  setShowInfoCard(false);
-                }}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold py-3.5 rounded-xl transition-colors cursor-pointer text-center"
-              >
-                Understood.
-              </button>
+              {/* Demo Instructions */}
+              <div className="space-y-2.5 pt-3 border-t border-zinc-800/60">
+                <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Demo Instructions</h5>
+                <ul className="space-y-2.5 text-xs text-zinc-100 leading-relaxed font-medium">
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-100 text-sm leading-none">•</span>
+                    <span>The login pages have &apos;Quick Fill&apos; buttons for accessing predetermined Demo Accounts.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-100 text-sm leading-none">•</span>
+                    <span>You can sign in as a paid student, an unpaid student, or an unregistered student.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-100 text-sm leading-none">•</span>
+                    <span>We set up 10003 for you to see the password setup flow.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-100 text-sm leading-none">•</span>
+                    <span>Head to the Warden Portal and access it using the warden_demo autofill.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Action Close Button */}
+              <div className="pt-4 border-t border-zinc-800/60">
+                <button
+                  onClick={() => {
+                    setShowInfoCard(false);
+                  }}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold py-3.5 rounded-xl transition-colors cursor-pointer text-center"
+                >
+                  Understood.
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <footer className="absolute bottom-6 w-full text-center">
         <p className="text-lg font-normal font-pixel text-zinc-600">CampusBytes.</p>

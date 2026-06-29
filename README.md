@@ -27,8 +27,9 @@ If you just want to poke around without setting up a database, the app has a bui
 - QR passes are cryptographically signed (HMAC-SHA256) and expire daily. You can't just screenshot a friends pass or reuse yesterday's code.
 - Passwords are bcrypt-hashed.
 - Sessions use secure, http-only JWT cookies.
-- We use a rate-limiter (Upstash Redis) on every single API endpoint to block spam at every node.
+- We use a rate-limiter (Upstash Redis) on every mutating API endpoint to block spam, while read-only polling endpoints are intentionally unrestricted for scale.
 - The database rejects duplicate entries at the constraint level, so scanning a pass twice physically cannot double-count a meal.
+- **Built for Scale:** Includes O(1) scanner verification, Prisma `_count` bandwidth trimming, and Upstash Redis caching for menus and warden metrics so it comfortably runs on free-tier infrastructure.
 
 ## The Stack
 
@@ -52,6 +53,7 @@ If you just want to poke around without setting up a database, the app has a bui
    QR_SECRET=
    UPSTASH_REDIS_REST_URL=
    UPSTASH_REDIS_REST_TOKEN=
+   TIMEZONE=Asia/Kolkata
    ```
 
 3. Push the schema and spin it up:
