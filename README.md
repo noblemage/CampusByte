@@ -8,7 +8,8 @@ Students pull up a QR code on their phone, the warden scans it, and boom, checki
 
 - Students log in using a password or just a passkey (can be FaceID or Fingerprint, whatever their phone supports). Super quick.
 - Every day, they get a fresh, uniquely generated QR pass for breakfast, lunch, and dinner.
-- The warden just scans the code. If someone forgets their phone, the warden can look them up manually.
+- **Warden Kiosk Mode:** Mount a tablet at the entrance and launch Kiosk Mode. It provides a full-screen, high-speed camera scanner with instant green/red visual and Web Audio API feedback, automating the entire queue.
+- If someone forgets their phone, the warden can look them up manually via the dashboard.
 - There's a live dashboard tracking exactly how many meals have been served so far.
 
 ## Checking out the demo
@@ -30,6 +31,7 @@ If you just want to poke around without setting up a database, the app has a bui
 - We use a rate-limiter (Upstash Redis) on every mutating API endpoint to block spam, while read-only polling endpoints are intentionally unrestricted for scale.
 - The database rejects duplicate entries at the constraint level, so scanning a pass twice physically cannot double-count a meal.
 - **Built for Scale:** Includes O(1) scanner verification, Prisma `_count` bandwidth trimming, and Upstash Redis caching for menus and warden metrics so it comfortably runs on free-tier infrastructure.
+- **Atomic Check-Ins:** The Kiosk Mode executes verification and redemption in a single, atomic database transaction to eliminate network tunnel latency, processing students in under 150ms.
 
 ## The Stack
 

@@ -66,3 +66,9 @@ Here is how the architecture handles scaling:
    - The student dashboard uses a heavily optimized polling endpoint (`/api/students/redemptions`) that only fires when the QR code is expanded.
    - The React Query `useRef` deduplication guard drops duplicate/spammy taps to protect the database.
    - The polling interval is aggressively set to 500ms for demo snappiness, which is safe because of the lightweight endpoint.
+5. **Atomic Check-Ins (Kiosk Mode)**:
+   - When running in Warden Kiosk mode, the verification and check-in steps are merged into a single atomic API call, entirely bypassing the network tunnel "double-request" latency.
+6. **Web Audio API**:
+   - Kiosk feedback tones are synthesized on the fly using the browser's native Web Audio API, avoiding heavy MP3 file downloads or caching issues over slow Wi-Fi.
+7. **Native Dynamic Icons**:
+   - Instead of static SVGs which are known to break in Apple Safari/iOS, we use Next.js `apple-icon.tsx` to dynamically generate perfect `png` icons using Twemoji edge-rendering.
