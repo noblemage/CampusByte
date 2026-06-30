@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getWardenSession } from '@/lib/auth';
 
+import { verifyTOTP } from '@/lib/totp';
+
 // Helper to generate HMAC-SHA256 hash
 function generateHMAC(data: string): string {
   const secret = process.env.QR_SECRET;
@@ -10,8 +12,6 @@ function generateHMAC(data: string): string {
   return crypto.createHmac('sha256', secret).update(data).digest('hex');
 }
 
-// POST /api/students/verify
-// Accepts a token (can be HMAC hash OR raw code) and verifies its validity
 export async function POST(request: Request) {
   try {
     const wardenSession = await getWardenSession();
@@ -20,62 +20,76 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { token, date } = body; // token can be the hash or the raw code like "10001-2026-06-18-01"
+    const { token, date } = body;
 
     if (!token) {
       return NextResponse.json({ error: "Missing token to verify" }, { status: 400 });
     }
 
     const targetDate = date || new Date().toISOString().split('T')[0];
-
-    // Check if token is a raw code (contains dashes and has the studentId format)
-    const rawCodePattern = /^\d{5}-\d{4}-\d{2}-\d{2}-\d{2}$/;
     
     let studentId = 0;
     let mealSlot = '';
-    let isRawCode = false;
     let computedHash = '';
+    let isTotpVerified = false;
 
-    if (rawCodePattern.test(token)) {
-      // It is a raw code
-      isRawCode = true;
-      const parts = token.split('-');
-      studentId = parseInt(parts[0], 10);
-      mealSlot = parts[4];
-      computedHash = generateHMAC(token);
-    } else {
-      // It is likely a 64-char hex HMAC token. We need to find which student and slot it corresponds to.
-      // Search all students. (In a real system with thousands of students, we could index or use a prefix,
-      // but scanning all students is extremely fast in SQLite for typical campus sizes).
-      const allStudents = await prisma.student.findMany();
-      
-      let foundMatch = false;
+    // Check if token is the new TOTP JSON payload
+    try {
+      if (token.startsWith('{')) {
+        const parsed = JSON.parse(token);
+        if (parsed.s && parsed.m && parsed.t) {
+          studentId = parsed.s;
+          mealSlot = parsed.m;
+          const totpToken = parsed.t;
 
-      for (const student of allStudents) {
-        // Only generate for paid students to optimize and enforce payment
-        if (student.paidStatus !== 1) continue;
-
-        const slots = ['01', '02', '03'];
-        for (const slot of slots) {
-          const rawString = `${student.studentId}-${targetDate}-${slot}`;
-          const hashVal = generateHMAC(rawString);
+          const studentSecret = generateHMAC(studentId.toString());
           
-          if (hashVal === token) {
-            studentId = student.studentId;
-            mealSlot = slot;
-            computedHash = hashVal;
-            foundMatch = true;
-            break;
+          if (verifyTOTP(totpToken, studentSecret, 30, [1, 0])) {
+            isTotpVerified = true;
+          } else {
+            return NextResponse.json({ valid: false, error: "Dynamic QR Code has expired or is invalid." }, { status: 400 });
           }
         }
-        if (foundMatch) break;
       }
+    } catch (e) {
+      // Ignore JSON parse errors, fall back to legacy formats
+    }
 
-      if (!foundMatch) {
-        return NextResponse.json({ 
-          valid: false, 
-          error: "Invalid token or code doesn't match any paid student for this date." 
-        }, { status: 404 });
+    // Fallback logic for legacy raw codes and static HMAC hashes
+    if (!isTotpVerified) {
+      const rawCodePattern = /^\d{5}-\d{4}-\d{2}-\d{2}-\d{2}$/;
+      
+      if (rawCodePattern.test(token)) {
+        const parts = token.split('-');
+        studentId = parseInt(parts[0], 10);
+        mealSlot = parts[4];
+        computedHash = generateHMAC(token);
+      } else {
+        const allStudents = await prisma.student.findMany();
+        let foundMatch = false;
+
+        for (const student of allStudents) {
+          if (student.paidStatus !== 1) continue;
+
+          const slots = ['01', '02', '03'];
+          for (const slot of slots) {
+            const rawString = `${student.studentId}-${targetDate}-${slot}`;
+            const hashVal = generateHMAC(rawString);
+            
+            if (hashVal === token) {
+              studentId = student.studentId;
+              mealSlot = slot;
+              computedHash = hashVal;
+              foundMatch = true;
+              break;
+            }
+          }
+          if (foundMatch) break;
+        }
+
+        if (!foundMatch) {
+          return NextResponse.json({ valid: false, error: "Invalid token or code doesn't match any paid student for this date." }, { status: 404 });
+        }
       }
     }
 

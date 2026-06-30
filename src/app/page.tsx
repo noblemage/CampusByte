@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
+import { generateTOTP } from '@/lib/totp';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { toast } from 'sonner';
 
@@ -43,6 +44,12 @@ export default function Home() {
   const [showInfoCard, setShowInfoCard] = useState(false);
   const [dailyMenu, setDailyMenu] = useState<{ [key: string]: string }>({});
 
+  // New State for Dynamic QR
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+  const [totpToken, setTotpToken] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [qrUrl, setQrUrl] = useState<string>('');
+
   useEffect(() => {
     setTimeout(() => {
       setIsSecureEnv(window.isSecureContext && !!navigator.credentials);
@@ -57,8 +64,6 @@ export default function Home() {
     }, 500);
     return () => clearTimeout(timer);
   }, []);
-
-
 
   // Generate QR codes
   useEffect(() => {
@@ -80,7 +85,7 @@ export default function Home() {
     else setTimeout(() => setQrUrls(prev => Object.keys(prev).length > 0 ? {} : prev), 0);
   }, [studentMealCodes]);
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (silent = false) => {
     try {
       const res = await fetch(`/api/students?id=${studentIdInput}&date=${currentDate}`);
       const data = await res.json();
@@ -90,6 +95,9 @@ export default function Home() {
       setStudentRedemptions(data.redemptions);
       setHasBiometrics(!!data.hasBiometrics);
       setStudentMealCodes(data.mealCodes || []);
+      if (data.totpSecret) {
+        setTotpSecret(data.totpSecret);
+      }
       if (data.dailyMenu) {
         setDailyMenu({
           '01': data.dailyMenu.breakfast || '',
@@ -101,7 +109,9 @@ export default function Home() {
       }
       setAuthStep('logged_in');
     } catch (err) {
-      toast.error('Could not load dashboard data.');
+      if (!silent) {
+        toast.error('Could not load dashboard data.');
+      }
     }
   }, [studentIdInput, currentDate]);
 
@@ -116,8 +126,8 @@ export default function Home() {
       const isRedeemed = isSlotRedeemed(selectedQrCode.slot, studentRedemptions);
       if (!isRedeemed) {
         interval = setInterval(() => {
-          fetchDashboardData();
-        }, 1500); // 1.5s fast polling
+          fetchDashboardData(true);
+        }, 3000); // 3s fast polling
       }
     }
     return () => {
@@ -125,7 +135,44 @@ export default function Home() {
     };
   }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate, fetchDashboardData]);
 
-  // Close QR modal on Escape key press
+  // Dynamic QR Code generation interval
+  useEffect(() => {
+    if (!totpSecret || !selectedQrCode) {
+      setTimeout(() => setQrUrl(selectedQrCode?.url || ''), 0);
+      return;
+    }
+
+    const updateQRCode = async () => {
+      const newToken = generateTOTP(totpSecret, 30);
+      setTotpToken(newToken);
+      
+      const epoch = Math.floor(Date.now() / 1000);
+      const remaining = 30 - (epoch % 30);
+      setTimeLeft(remaining);
+
+      const payload = JSON.stringify({
+        s: parseInt(studentIdInput, 10),
+        m: selectedQrCode.slot,
+        t: newToken
+      });
+
+      const url = await QRCode.toDataURL(payload, {
+        width: 400,
+        margin: 2,
+        color: { dark: '#18181b', light: '#ffffff' }
+      });
+      setQrUrl(url);
+    };
+
+    updateQRCode();
+    
+    const intervalId = setInterval(() => {
+      updateQRCode();
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [totpSecret, selectedQrCode, studentIdInput]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && selectedQrCode) {
@@ -274,8 +321,6 @@ export default function Home() {
     }
   };
 
-
-
   const handleStudentLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     setAuthStep('id');
@@ -418,51 +463,6 @@ export default function Home() {
         {authStep === 'logged_in' && activeStudent && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-black p-6 rounded-2xl flex justify-between items-center border border-zinc-800/80 relative overflow-hidden">
-              {/* Star backdrop wrapper with delayed fade-in */}
-              <div className="absolute inset-0 w-full h-full pointer-events-none animate-stars-fade select-none">
-                {/* Rich Star field */}
-                <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                  {/* Tiny background stars */}
-                  <circle cx="5%" cy="30%" r="0.8" className="fill-white/30" />
-                  <circle cx="12%" cy="70%" r="1" className="fill-white/40 animate-[pulse_3s_infinite_0.5s]" />
-                  <circle cx="22%" cy="15%" r="0.8" className="fill-white/30" />
-                  <circle cx="28%" cy="85%" r="1.2" className="fill-white/60 animate-[pulse_2.5s_infinite]" />
-                  <circle cx="38%" cy="25%" r="1" className="fill-white/40 animate-[pulse_3s_infinite_1.2s]" />
-                  <circle cx="45%" cy="60%" r="0.8" className="fill-white/30" />
-                  <circle cx="50%" cy="15%" r="1.2" className="fill-white/80 animate-[pulse_2s_infinite]" />
-                  <circle cx="58%" cy="75%" r="1" className="fill-white/50 animate-[pulse_4s_infinite_0.5s]" />
-                  <circle cx="64%" cy="35%" r="1.5" className="fill-white/60 animate-[pulse_2.5s_infinite_1s]" />
-                  <circle cx="70%" cy="85%" r="0.8" className="fill-white/40" />
-                  <circle cx="76%" cy="20%" r="1.2" className="fill-white/90 animate-[pulse_3.5s_infinite_1.2s]" />
-                  <circle cx="82%" cy="60%" r="1" className="fill-white/60 animate-[pulse_2s_infinite_0.8s]" />
-                  <circle cx="88%" cy="80%" r="1.5" className="fill-white/70 animate-[pulse_3s_infinite_1.5s]" />
-                  <circle cx="92%" cy="25%" r="0.8" className="fill-white/40" />
-                  <circle cx="96%" cy="65%" r="1.2" className="fill-white/80 animate-[pulse_4s_infinite_2s]" />
-                  <circle cx="98%" cy="15%" r="1.5" className="fill-white/90 animate-[pulse_2.5s_infinite_0.3s]" />
-
-                  {/* Shining 4-point star flares */}
-                  <svg x="40%" y="30%" className="overflow-visible animate-[pulse_2.5s_infinite_0.8s]">
-                    <path d="M0 -3 L0.7 -0.7 L3 0 L0.7 0.7 L0 3 L-0.7 0.7 L-3 0 L-0.7 -0.7 Z" fill="#ffffff" />
-                  </svg>
-                  <svg x="62%" y="20%" className="overflow-visible animate-[pulse_2s_infinite_0.5s]">
-                    <path d="M0 -3.5 L0.8 -0.8 L3.5 0 L0.8 0.8 L0 3.5 L-0.8 0.8 L-3.5 0 L-0.8 -0.8 Z" fill="#ffffff" />
-                  </svg>
-                  <svg x="78%" y="70%" className="overflow-visible animate-[pulse_3s_infinite_1.5s]">
-                    <path d="M0 -4 L1 -1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1 -1 Z" fill="#ffffff" />
-                  </svg>
-                  <svg x="90%" y="35%" className="overflow-visible animate-[pulse_2.5s_infinite_1s]">
-                    <path d="M0 -3.5 L0.8 -0.8 L3.5 0 L0.8 0.8 L0 3.5 L-0.8 0.8 L-3.5 0 L-0.8 -0.8 Z" fill="#ffffff" />
-                  </svg>
-                </svg>
-
-                {/* Gradient overlay to smoothly hide stars behind the name/ID text */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent w-[50%] z-0"></div>
-
-                {/* Shooting Stars */}
-                <div className="absolute top-0 right-[15%] w-[120px] h-[1px] bg-gradient-to-r from-white to-transparent origin-left animate-shoot-1 z-0"></div>
-                <div className="absolute top-1 right-[35%] w-[90px] h-[1px] bg-gradient-to-r from-white/70 to-transparent origin-left animate-shoot-2 z-0"></div>
-              </div>
-
               <div className="space-y-1 text-left relative z-10">
                 <h3 className="text-lg font-bold text-zinc-100 leading-tight">{activeStudent.name}</h3>
                 <p className="text-sm text-zinc-400">ID: <span className="text-zinc-200 font-medium">{activeStudent.studentId}</span></p>
@@ -474,7 +474,6 @@ export default function Home() {
               <div className="glass-card p-6 rounded-2xl flex flex-col items-center text-center border border-zinc-800 bg-zinc-900/50 space-y-4">
                 <div className="space-y-1">
                   <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                     Passwordless Login
                   </h4>
                   <p className="text-sm text-zinc-400">
@@ -500,7 +499,6 @@ export default function Home() {
                   <span className="text-sm text-zinc-400 font-medium">{currentDate}</span>
                 </div>
 
-                {/* DESKTOP RESPONSIVE GRID */}
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                   {studentMealCodes.map((item) => {
                     const redeemed = isSlotRedeemed(item.slot, studentRedemptions);
@@ -541,7 +539,6 @@ export default function Home() {
                               className={`p-2 bg-zinc-100 rounded-xl shadow-md ${!redeemed && 'cursor-pointer hover:scale-105 transition-transform'
                                 }`}
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={qrUrl} alt="QR Pass" className="w-32 h-32 md:w-full md:h-auto md:max-w-[160px] pointer-events-none" />
                             </button>
                           )}
@@ -552,26 +549,6 @@ export default function Home() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
-
-            {hasBiometrics && (
-              <div className="pt-8">
-                <div className="glass-card p-6 rounded-2xl flex flex-col items-center text-center border border-zinc-800 bg-zinc-900/50 space-y-4">
-                  <div className="space-y-1">
-                    <h4 className="text-base font-bold text-zinc-100 flex items-center justify-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                      Passwordless Login
-                    </h4>
-                    <p className="text-sm text-zinc-400">
-                      {!isSecureEnv ? 'Passkeys require a secure HTTPS connection. They are disabled on local HTTP networks.' : (hasBiometrics ? 'You have registered this device for instant login.' : 'Register this device to sign in instantly next time.')}
-                    </p>
-                  </div>
-                  <button onClick={handleRegisterBiometric} disabled={isRegisteringBiometric || !isSecureEnv} className={`w-full max-w-sm px-4 py-3 rounded-xl text-sm font-bold transition-all ${!isSecureEnv ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white cursor-pointer'}`}>
-                    {isRegisteringBiometric ? 'Registering...' : (hasBiometrics ? 'Re-register Device' : 'Register Device')}
-                  </button>
-                  {biometricMessage && <p className="text-sm text-zinc-100 font-medium bg-zinc-800 border border-zinc-600 px-4 py-2 rounded-lg w-full max-w-sm mt-2">{biometricMessage}</p>}
                 </div>
               </div>
             )}
@@ -610,13 +587,9 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="flex justify-center bg-zinc-100 p-4 rounded-2xl shadow-inner mx-auto max-w-[240px]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={selectedQrCode.url} alt="Large QR Pass" className="w-full h-auto aspect-square" />
+                      <img src={qrUrl} alt="Large QR Pass" className="w-full h-auto aspect-square" />
                     </div>
-                    <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800">
-                      <p className="text-xs text-zinc-500 font-bold mb-2">Hash Code</p>
-                      <p className="text-xs font-mono text-zinc-400 break-all">{selectedQrCode.hash}</p>
-                    </div>
+                    
                     <button onClick={() => setSelectedQrCode(null)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-bold py-4 rounded-xl transition-colors cursor-pointer">Close Window</button>
                   </div>
                 )}

@@ -76,6 +76,7 @@ export async function GET(request: Request) {
     ];
     
     let mealCodes: { slot: string; name: string; raw: string; hash: string }[] = [];
+    let totpSecret = null;
     
     if (student && student.paidStatus === 1) {
       mealCodes = slots.map((item) => {
@@ -83,9 +84,11 @@ export async function GET(request: Request) {
         const hash = generateHMAC(raw);
         return { slot: item.slot, name: item.name, raw, hash };
       });
+      // Generate a deterministic TOTP secret for the student
+      totpSecret = generateHMAC(student.studentId.toString());
     }
 
-    return NextResponse.json({ student, redemptions, date: targetDate, hasBiometrics, mealCodes, dailyMenu });
+    return NextResponse.json({ student, redemptions, date: targetDate, hasBiometrics, mealCodes, dailyMenu, totpSecret });
   } catch (error) {
     console.error("Error retrieving student details:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
