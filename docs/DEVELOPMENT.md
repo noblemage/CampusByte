@@ -72,3 +72,8 @@ Here is how the architecture handles scaling:
    - Kiosk feedback tones are synthesized on the fly using the browser's native Web Audio API, avoiding heavy MP3 file downloads or caching issues over slow Wi-Fi.
 7. **Native Dynamic Icons**:
    - Instead of static SVGs which are known to break in Apple Safari/iOS, we use Next.js `apple-icon.tsx` to dynamically generate perfect `png` icons using Twemoji edge-rendering.
+8. **Time-Drift Compensation**:
+   - Since TOTP calculations depend on exact sync, the client checks the server's time on load and offsets its local generation clock accordingly. If a student's system clock is off, pass generation still works perfectly.
+9. **Screen Wake Lock**:
+   - Uses the browser's native Screen Wake Lock API when a QR pass modal is expanded. This keeps the device's screen bright and awake so scanners can read the code instantly in low-signal lines.
+

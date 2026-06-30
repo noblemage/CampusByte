@@ -45,6 +45,8 @@ export default function Home() {
   const [totpToken, setTotpToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [qrUrl, setQrUrl] = useState<string>('');
+  const [timeOffset, setTimeOffset] = useState<number>(0);
+  const wakeLockRef = useRef<any>(null);
 
   useEffect(() => {
     setTimeout(() => {
@@ -61,14 +63,23 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Generate QR codes
+  // Generate small QR codes (static or dynamic)
   useEffect(() => {
     async function generateQRs() {
       const urls: Record<string, string> = {};
       for (const item of studentMealCodes) {
         if (!item.hash) continue;
         try {
-          const payload = `${studentIdInput}:${item.hash}`;
+          let payload;
+          if (totpSecret && totpToken) {
+            payload = JSON.stringify({
+              s: parseInt(studentIdInput, 10),
+              m: item.slot,
+              t: totpToken
+            });
+          } else {
+            payload = `${studentIdInput}:${item.hash}`;
+          }
           const url = await QRCode.toDataURL(payload, {
             margin: 1, width: 220,
             color: { dark: '#09090b', light: '#ffffff' }
@@ -80,7 +91,7 @@ export default function Home() {
     }
     if (studentMealCodes.length > 0) generateQRs();
     else setTimeout(() => setQrUrls(prev => Object.keys(prev).length > 0 ? {} : prev), 0);
-  }, [studentMealCodes, studentIdInput]);
+  }, [studentMealCodes, studentIdInput, totpSecret, totpToken]);
 
   // Ref to prevent duplicate in-flight fetchDashboardData calls (Opt 5)
   const isFetchingDashboard = useRef(false);
@@ -99,6 +110,9 @@ export default function Home() {
       setStudentMealCodes(data.mealCodes || []);
       if (data.totpSecret) {
         setTotpSecret(data.totpSecret);
+      }
+      if (data.serverTime) {
+        setTimeOffset(data.serverTime - Date.now());
       }
       if (data.dailyMenu) {
         setDailyMenu({
@@ -151,43 +165,57 @@ export default function Home() {
     };
   }, [selectedQrCode, studentRedemptions, studentIdInput, currentDate, fetchRedemptions]);
 
-  // Dynamic QR Code generation interval
+  // Global timer for TOTP token & countdown
   useEffect(() => {
-    if (!totpSecret || !selectedQrCode) {
-      setTimeout(() => setQrUrl(selectedQrCode?.url || ''), 0);
-      return;
-    }
-
-    const updateQRCode = async () => {
-      const newToken = generateTOTP(totpSecret, 30);
+    if (!totpSecret) return;
+    
+    const updateTimer = () => {
+      const compensatedTime = Date.now() + timeOffset;
+      const newToken = generateTOTP(totpSecret, 30, compensatedTime);
       setTotpToken(newToken);
       
-      const epoch = Math.floor(Date.now() / 1000);
+      const epoch = Math.floor(compensatedTime / 1000);
       const remaining = 30 - (epoch % 30);
       setTimeLeft(remaining);
-
-      const payload = JSON.stringify({
-        s: parseInt(studentIdInput, 10),
-        m: selectedQrCode.slot,
-        t: newToken
-      });
-
-      const url = await QRCode.toDataURL(payload, {
-        width: 400,
-        margin: 2,
-        color: { dark: '#18181b', light: '#ffffff' }
-      });
-      setQrUrl(url);
     };
-
-    updateQRCode();
     
-    const intervalId = setInterval(() => {
-      updateQRCode();
-    }, 1000);
-
+    updateTimer();
+    const intervalId = setInterval(updateTimer, 1000);
     return () => clearInterval(intervalId);
-  }, [totpSecret, selectedQrCode, studentIdInput]);
+  }, [totpSecret, timeOffset]);
+
+  // Generate large QR code for modal
+  useEffect(() => {
+    if (!selectedQrCode) return;
+    
+    // capture for typescript closure
+    const currentSelected = selectedQrCode;
+    
+    async function generateLargeQR() {
+      let payload;
+      if (totpSecret && totpToken) {
+        payload = JSON.stringify({
+          s: parseInt(studentIdInput, 10),
+          m: currentSelected.slot,
+          t: totpToken
+        });
+      } else {
+        payload = `${studentIdInput}:${currentSelected.hash}`;
+      }
+      try {
+        const url = await QRCode.toDataURL(payload, {
+          width: 400,
+          margin: 2,
+          color: { dark: '#18181b', light: '#ffffff' }
+        });
+        setQrUrl(url);
+      } catch (err) {
+        setQrUrl(currentSelected.url);
+      }
+    }
+    
+    generateLargeQR();
+  }, [selectedQrCode, studentIdInput, totpSecret, totpToken]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -198,6 +226,27 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedQrCode]);
+
+  // Manage Screen Wake Lock when QR code is expanded
+  useEffect(() => {
+    if (selectedQrCode && 'wakeLock' in navigator) {
+      const requestWakeLock = async () => {
+        try {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        } catch (err) {
+          console.error("Wake Lock request failed:", err);
+        }
+      };
+      requestWakeLock();
+    }
+    
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(console.error);
+        wakeLockRef.current = null;
+      }
+    };
   }, [selectedQrCode]);
 
   // --- Student Auth Methods ---
@@ -479,6 +528,51 @@ export default function Home() {
         {authStep === 'logged_in' && activeStudent && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-black p-6 rounded-2xl flex justify-between items-center border border-zinc-800/80 relative overflow-hidden">
+              {/* Star backdrop wrapper with delayed fade-in */}
+              <div className="absolute inset-0 w-full h-full pointer-events-none animate-stars-fade select-none">
+                {/* Rich Star field */}
+                <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  {/* Tiny background stars */}
+                  <circle cx="5%" cy="30%" r="0.8" className="fill-white/30" />
+                  <circle cx="12%" cy="70%" r="1" className="fill-white/40 animate-[pulse_3s_infinite_0.5s]" />
+                  <circle cx="22%" cy="15%" r="0.8" className="fill-white/30" />
+                  <circle cx="28%" cy="85%" r="1.2" className="fill-white/60 animate-[pulse_2.5s_infinite]" />
+                  <circle cx="38%" cy="25%" r="1" className="fill-white/40 animate-[pulse_3s_infinite_1.2s]" />
+                  <circle cx="45%" cy="60%" r="0.8" className="fill-white/30" />
+                  <circle cx="50%" cy="15%" r="1.2" className="fill-white/80 animate-[pulse_2s_infinite]" />
+                  <circle cx="58%" cy="75%" r="1" className="fill-white/50 animate-[pulse_4s_infinite_0.5s]" />
+                  <circle cx="64%" cy="35%" r="1.5" className="fill-white/60 animate-[pulse_2.5s_infinite_1s]" />
+                  <circle cx="70%" cy="85%" r="0.8" className="fill-white/40" />
+                  <circle cx="76%" cy="20%" r="1.2" className="fill-white/90 animate-[pulse_3.5s_infinite_1.2s]" />
+                  <circle cx="82%" cy="60%" r="1" className="fill-white/60 animate-[pulse_2s_infinite_0.8s]" />
+                  <circle cx="88%" cy="80%" r="1.5" className="fill-white/70 animate-[pulse_3s_infinite_1.5s]" />
+                  <circle cx="92%" cy="25%" r="0.8" className="fill-white/40" />
+                  <circle cx="96%" cy="65%" r="1.2" className="fill-white/80 animate-[pulse_4s_infinite_2s]" />
+                  <circle cx="98%" cy="15%" r="1.5" className="fill-white/90 animate-[pulse_2.5s_infinite_0.3s]" />
+
+                  {/* Shining 4-point star flares */}
+                  <svg x="40%" y="30%" className="overflow-visible animate-[pulse_2.5s_infinite_0.8s]">
+                    <path d="M0 -3 L0.7 -0.7 L3 0 L0.7 0.7 L0 3 L-0.7 0.7 L-3 0 L-0.7 -0.7 Z" fill="#ffffff" />
+                  </svg>
+                  <svg x="62%" y="20%" className="overflow-visible animate-[pulse_2s_infinite_0.5s]">
+                    <path d="M0 -3.5 L0.8 -0.8 L3.5 0 L0.8 0.8 L0 3.5 L-0.8 0.8 L-3.5 0 L-0.8 -0.8 Z" fill="#ffffff" />
+                  </svg>
+                  <svg x="78%" y="70%" className="overflow-visible animate-[pulse_3s_infinite_1.5s]">
+                    <path d="M0 -4 L1 -1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1 -1 Z" fill="#ffffff" />
+                  </svg>
+                  <svg x="90%" y="35%" className="overflow-visible animate-[pulse_2.5s_infinite_1s]">
+                    <path d="M0 -3.5 L0.8 -0.8 L3.5 0 L0.8 0.8 L0 3.5 L-0.8 0.8 L-3.5 0 L-0.8 -0.8 Z" fill="#ffffff" />
+                  </svg>
+                </svg>
+
+                {/* Gradient overlay to smoothly hide stars behind the name/ID text */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent w-[50%] z-0"></div>
+
+                {/* Shooting Stars */}
+                <div className="absolute top-0 right-[15%] w-[120px] h-[1px] bg-gradient-to-r from-white to-transparent origin-left animate-shoot-1 z-0"></div>
+                <div className="absolute top-1 right-[35%] w-[90px] h-[1px] bg-gradient-to-r from-white/70 to-transparent origin-left animate-shoot-2 z-0"></div>
+              </div>
+
               <div className="space-y-1 text-left relative z-10">
                 <h3 className="text-lg font-bold text-zinc-100 leading-tight">{activeStudent.name}</h3>
                 <p className="text-sm text-zinc-400">ID: <span className="text-zinc-200 font-medium">{activeStudent.studentId}</span></p>
@@ -625,7 +719,20 @@ export default function Home() {
                     <div className="flex justify-center bg-zinc-100 p-4 rounded-2xl shadow-inner mx-auto max-w-[240px]">
                       <img src={qrUrl} alt="Large QR Pass" className="w-full h-auto aspect-square" />
                     </div>
-                    
+
+                    {/* Timer or Static Indicator */}
+                    <div className="flex justify-center -mt-2">
+                      {totpSecret ? (
+                        <span className="text-xs font-medium text-zinc-500 tabular-nums">
+                          Refreshing in {String(timeLeft).padStart(2, '0')}s
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wider bg-zinc-900 text-zinc-500 border border-zinc-800">
+                          Static Pass
+                        </span>
+                      )}
+                    </div>
+
                     <button onClick={() => setSelectedQrCode(null)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-bold py-4 rounded-xl transition-colors cursor-pointer">Close Window</button>
                   </div>
                 )}

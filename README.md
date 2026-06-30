@@ -7,7 +7,8 @@ Students pull up a QR code on their phone, the warden scans it, and boom, checki
 ## What does it actually do?
 
 - Students log in using a password or just a passkey (can be FaceID or Fingerprint, whatever their phone supports). Super quick.
-- Every day, they get a fresh, uniquely generated QR pass for breakfast, lunch, and dinner.
+- Every day, they get dynamic, rolling QR passes that rotate every 30 seconds using client-side TOTP (HMAC-SHA1).
+- Screen Wake Lock: Keeps the phone screen awake and bright when a pass is opened so scanners don't struggle.
 - Warden Kiosk Mode: It provides a full-screen, high-speed camera scanner with instant green/red visual and Web Audio API feedback, automating the entire queue.
 - If someone forgets their phone, the warden can look them up manually via the dashboard.
 - There's a live dashboard tracking exactly how many meals have been served so far.
@@ -25,8 +26,7 @@ If you just want to poke around without setting up a database, the app has a bui
 
 ## Under the hood (Security)
 
-- QR passes are cryptographically signed (HMAC-SHA256) and expire daily. You can't just screenshot a friends pass or reuse yesterday's code.
-- Passwords are bcrypt-hashed.
+- Dynamic Rolling Passes: Rather than static passes, QR payloads contain a 30-second rotating TOTP token. Screenshots are useless after half a minute, preventing students from texting passes to their friends.
 - Sessions use secure, http-only JWT cookies.
 - We use a rate-limiter (Upstash Redis) on every mutating API endpoint to block spam, while read-only polling endpoints are intentionally unrestricted for scale.
 - The database rejects duplicate entries at the constraint level, so scanning a pass twice physically cannot double-count a meal.

@@ -113,7 +113,7 @@ export async function GET(request: Request) {
       totpSecret = generateHMAC(student.studentId.toString());
     }
 
-    const response = NextResponse.json({ student, redemptions, date: targetDate, hasBiometrics, mealCodes, dailyMenu, totpSecret });
+    const response = NextResponse.json({ student, redemptions, date: targetDate, hasBiometrics, mealCodes, dailyMenu, totpSecret, serverTime: Date.now() });
     response.headers.set('Cache-Control', 'private, max-age=5');
     return response;
   } catch (error) {

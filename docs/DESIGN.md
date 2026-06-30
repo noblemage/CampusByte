@@ -147,6 +147,9 @@ Present but minimal. Nothing animates for decoration.
 
 No `animate-bounce`, `animate-ping`, or pulsing on status elements. Buttons and inputs use `transition-colors` only, not `transition-all`.
 
+- Dynamic Timers: Do not add flashing, spinning circular indicators or color-changing countdown graphics. Use simple, monospace-aligned static helper text instead (e.g. `Refreshing in 30s` set to `tabular-nums` so numbers don't jump) to keep the UI clean and terminal-like.
+
+
 ---
 
 ## Background
