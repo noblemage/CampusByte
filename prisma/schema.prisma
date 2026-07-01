@@ -15,6 +15,7 @@ model Student {
   currentWebAuthnChallenge String?
   authenticators           Authenticator[]
   mealRedemptions          MealRedemption[]
+  orders                   Order[]
 }
 
 model Authenticator {
@@ -47,6 +48,9 @@ model Warden {
   username     String           @unique
   name         String
   passwordHash String
+  role         String           @default("HOSTEL_WARDEN") // 'HOSTEL_WARDEN' | 'VENDOR_ADMIN'
+  vendorId     Int?
+  vendor       Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   redemptions  MealRedemption[]
 }
 
@@ -55,4 +59,47 @@ model DailyMenu {
   breakfast String?
   lunch     String?
   dinner    String?
+}
+
+model Vendor {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique
+  isActive  Boolean     @default(true)
+  menuItems MenuItem[]
+  orders    Order[]
+  wardens   Warden[]
+}
+
+model MenuItem {
+  id          Int         @id @default(autoincrement())
+  vendorId    Int
+  vendor      Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  isAvailable Boolean     @default(true)
+  imageUrl    String?
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  orderNumber String      @unique
+  studentId   Int
+  student     Student     @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  vendorId    Int
+  vendor      Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  totalAmount Float
+  status      String      @default("Pending") // 'Pending', 'Ready', 'PickedUp'
+  createdAt   DateTime    @default(now())
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id                 Int      @id @default(autoincrement())
+  orderId            Int
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId         Int
+  menuItem           MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  quantity           Int
+  priceAtTimeOfOrder Float
 }

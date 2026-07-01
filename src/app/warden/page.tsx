@@ -139,6 +139,10 @@ export default function WardenDashboard() {
         const res = await fetch('/api/auth/warden/check');
         const data = await res.json();
         if (res.ok && data.authenticated) {
+          if (data.warden.role === 'VENDOR_ADMIN') {
+            router.push('/vendor/dashboard');
+            return;
+          }
           setWarden(data.warden);
           fetchMetrics(currentDate);
           fetchMenu(currentDate);
@@ -511,7 +515,7 @@ export default function WardenDashboard() {
         {/* HEADER */}
         <div className="flex flex-col gap-4 border-b border-zinc-900 pb-6">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white font-sans">Warden Dashboard.</h1>
+            <h1 className="text-2xl font-black tracking-tight text-white font-sans">Hostel Mess Controlling System.</h1>
             <p className="text-xs text-zinc-500 mt-1 font-medium">
               Live statistics, resets every day.
             </p>

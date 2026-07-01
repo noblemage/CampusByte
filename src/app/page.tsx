@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { generateTOTP } from '@/lib/totp';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { toast } from 'sonner';
+import DailyMenuOrdering from '@/components/DailyMenuOrdering';
 
 interface Student {
   studentId: number;
@@ -606,40 +607,10 @@ export default function Home() {
 
         {authStep === 'choose_section' && selectedSection === 'daily_ordering' && activeStudent && (
           <div className="space-y-6 animate-fade-in w-full">
-            {/* Header with back button */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSelectedSection(null)}
-                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors cursor-pointer"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
-              </button>
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Daily Menu Ordering</h2>
-                <p className="text-xs text-zinc-400 font-medium mt-0.5">Browse and order your meals.</p>
-              </div>
-            </div>
-
-            {/* Placeholder Content */}
-            <div className="glass-card p-12 rounded-2xl flex flex-col items-center text-center space-y-5">
-              <div className="w-20 h-20 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-10 h-10 text-zinc-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-zinc-100">Coming Soon</h3>
-                <p className="text-sm text-zinc-400 max-w-sm leading-relaxed">Daily menu ordering is being built. You&apos;ll be able to browse the daily menu and pre-order meals from here.</p>
-              </div>
-              <button
-                onClick={() => setSelectedSection(null)}
-                className="mt-2 px-6 py-3 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-sm font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                Back to Dashboard
-              </button>
-            </div>
+            <DailyMenuOrdering
+              studentId={activeStudent.studentId}
+              onBack={() => setSelectedSection(null)}
+            />
 
             {/* Sign out link */}
             <div className="text-center">

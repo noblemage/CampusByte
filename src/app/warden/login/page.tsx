@@ -32,7 +32,11 @@ export default function WardenLoginPage() {
         throw new Error(data.error || 'Sign-in failed.');
       }
 
-      router.push('/warden');
+      if (data.role === 'VENDOR_ADMIN') {
+        router.push('/vendor/dashboard');
+      } else {
+        router.push('/warden');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong.');
     } finally {
@@ -95,9 +99,14 @@ export default function WardenLoginPage() {
 
       {/* Demo Helper */}
       {process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true' && (
-        <div className="glass-card max-w-md w-full mt-4 p-6 rounded-3xl space-y-2 text-center shadow-2xl border border-zinc-800 animate-fade-in animate-float" style={{ animationDelay: '0.1s' }}>
-          <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Demo Warden</p>
-          <button type="button" onClick={() => { setUsername('warden_demo'); setPassword('password123'); }} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-4 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Quick Fill (warden_demo)</button>
+        <div className="glass-card max-w-md w-full mt-4 p-6 rounded-3xl space-y-4 text-center shadow-2xl border border-zinc-800 animate-fade-in animate-float" style={{ animationDelay: '0.1s' }}>
+          <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Demo Accounts (Quick Fill)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => { setUsername('hostel_warden_1'); setPassword('password123'); }} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Hostel Warden Demo</button>
+            <button type="button" onClick={() => { setUsername('canteen_admin_1'); setPassword('password123'); }} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Main Canteen Admin</button>
+            <button type="button" onClick={() => { setUsername('farmcakes_admin_1'); setPassword('password123'); }} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Farm Cakes Admin</button>
+            <button type="button" onClick={() => { setUsername('cafe_admin_1'); setPassword('password123'); }} className="text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-2 rounded-lg transition-colors cursor-pointer w-full font-medium">Cafe Admin</button>
+          </div>
         </div>
       )}
 

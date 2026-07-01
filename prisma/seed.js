@@ -26,12 +26,16 @@ async function main() {
   const passwordHash = await bcrypt.hash('password123', salt);
 
   console.log('Flushing database...');
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.menuItem.deleteMany({});
+  await prisma.vendor.deleteMany({});
   await prisma.authenticator.deleteMany({});
   await prisma.mealRedemption.deleteMany({});
   await prisma.student.deleteMany({});
   await prisma.warden.deleteMany({});
 
-  console.log('Seeding database with demo accounts...');
+  console.log('Seeding database with demo students...');
 
   // 1. Create Paid Student
   await prisma.student.upsert({
@@ -69,22 +73,75 @@ async function main() {
     }
   });
 
-  // 4. Create Warden Account
-  await prisma.warden.upsert({
-    where: { username: 'warden_demo' },
-    update: {},
-    create: {
-      username: 'warden_demo',
-      name: 'Warden Demo',
-      passwordHash: passwordHash
+  console.log('Seeding vendors and menu items...');
+  const mainCanteen = await prisma.vendor.create({
+    data: {
+      name: 'Main Canteen',
+      menuItems: {
+        create: [
+          { name: 'Chicken Biryani', price: 120 },
+          { name: 'Paneer Butter Masala', price: 100 },
+          { name: 'Veg Thali', price: 80 }
+        ]
+      }
     }
   });
 
+  const farmCakes = await prisma.vendor.create({
+    data: {
+      name: 'Farm Cakes',
+      menuItems: {
+        create: [
+          { name: 'Chocolate Truffle Pastry', price: 60 },
+          { name: 'Vanilla Cupcake', price: 40 },
+          { name: 'Cheese Croissant', price: 50 }
+        ]
+      }
+    }
+  });
+
+  const cafe = await prisma.vendor.create({
+    data: {
+      name: 'Cafe',
+      menuItems: {
+        create: [
+          { name: 'Cold Coffee', price: 70 },
+          { name: 'Grilled Sandwich', price: 90 },
+          { name: 'French Fries', price: 50 }
+        ]
+      }
+    }
+  });
+  console.log('Vendors and Menu Items seeded successfully.');
+
+  console.log('Seeding Admins...');
+
+  const admins = [
+    { username: 'hostel_warden_1', name: 'Hostel Warden 1', role: 'HOSTEL_WARDEN', vendorId: null },
+    { username: 'hostel_warden_2', name: 'Hostel Warden 2', role: 'HOSTEL_WARDEN', vendorId: null },
+    { username: 'canteen_admin_1', name: 'Canteen Admin 1', role: 'VENDOR_ADMIN', vendorId: mainCanteen.id },
+    { username: 'canteen_admin_2', name: 'Canteen Admin 2', role: 'VENDOR_ADMIN', vendorId: mainCanteen.id },
+    { username: 'farmcakes_admin_1', name: 'Farm Cakes Admin 1', role: 'VENDOR_ADMIN', vendorId: farmCakes.id },
+    { username: 'farmcakes_admin_2', name: 'Farm Cakes Admin 2', role: 'VENDOR_ADMIN', vendorId: farmCakes.id },
+    { username: 'cafe_admin_1', name: 'Cafe Admin 1', role: 'VENDOR_ADMIN', vendorId: cafe.id },
+    { username: 'cafe_admin_2', name: 'Cafe Admin 2', role: 'VENDOR_ADMIN', vendorId: cafe.id },
+  ];
+
+  for (const admin of admins) {
+    await prisma.warden.create({
+      data: {
+        username: admin.username,
+        name: admin.name,
+        role: admin.role,
+        vendorId: admin.vendorId,
+        passwordHash: passwordHash
+      }
+    });
+  }
+
   console.log('Seeding completed successfully:');
-  console.log(' - Student: 10001 (Paid) | Pass: password123');
-  console.log(' - Student: 10002 (Unpaid) | Pass: password123');
-  console.log(' - Student: 10003 (New) | Pass: <unregistered>');
-  console.log(' - Warden: warden_demo | Pass: password123');
+  console.log(' - Students: 10001, 10002, 10003');
+  console.log(' - Admins: hostel_warden_1, canteen_admin_1, farmcakes_admin_1, cafe_admin_1');
 }
 
 main()

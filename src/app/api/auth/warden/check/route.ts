@@ -11,7 +11,7 @@ export async function GET() {
 
   const warden = await prisma.warden.findUnique({
     where: { id: session.wardenId },
-    select: { id: true, username: true, name: true }
+    select: { id: true, username: true, name: true, role: true, vendorId: true }
   });
 
   if (!warden) {

@@ -32,7 +32,12 @@ export async function POST(request: Request) {
 
     await createWardenSessionCookie(warden.id);
 
-    return NextResponse.json({ success: true, name: warden.name });
+    return NextResponse.json({ 
+      success: true, 
+      name: warden.name,
+      role: warden.role,
+      vendorId: warden.vendorId
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
