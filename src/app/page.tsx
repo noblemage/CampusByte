@@ -21,7 +21,8 @@ export default function Home() {
   const [isSecureEnv, setIsSecureEnv] = useState(true);
 
   // --- Student Auth States ---
-  const [authStep, setAuthStep] = useState<'id' | 'password' | 'setup_password' | 'logged_in'>('id');
+  const [authStep, setAuthStep] = useState<'id' | 'password' | 'setup_password' | 'choose_section' | 'logged_in'>('id');
+  const [selectedSection, setSelectedSection] = useState<'hostlers_menu' | 'daily_ordering' | null>(null);
   const [studentIdInput, setStudentIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -123,7 +124,7 @@ export default function Home() {
       } else {
         setDailyMenu({});
       }
-      setAuthStep('logged_in');
+      setAuthStep('choose_section');
     } catch (err) {
       if (!silent) {
         toast.error('Could not load dashboard data.');
@@ -395,6 +396,15 @@ export default function Home() {
     setStudentMealCodes([]);
     setSelectedQrCode(null);
     setHasBiometrics(false);
+    setSelectedSection(null);
+  };
+
+  const handleSectionSelect = (section: 'hostlers_menu' | 'daily_ordering') => {
+    setSelectedSection(section);
+    if (section === 'hostlers_menu') {
+      setAuthStep('logged_in');
+    }
+    // daily_ordering stays on choose_section with its own UI
   };
 
   // --- Components ---
@@ -403,7 +413,7 @@ export default function Home() {
     <main className={`min-h-screen pb-24 text-zinc-100 relative overflow-hidden font-sans ${authStep !== 'logged_in' ? 'flex flex-col justify-center items-center' : ''}`}>
 
       {/* --- STUDENT PORTAL --- */}
-      <section className={`w-full px-4 ${authStep !== 'logged_in' ? 'max-w-md animate-float' : 'max-w-md md:max-w-4xl mx-auto mt-8'}`}>
+      <section className={`w-full px-4 ${authStep === 'choose_section' ? 'max-w-2xl' : authStep !== 'logged_in' ? 'max-w-md animate-float' : 'max-w-md md:max-w-4xl mx-auto mt-8'}`}>
 
         {authStep === 'id' && (
           <>
@@ -525,6 +535,121 @@ export default function Home() {
           </>
         )}
 
+        {authStep === 'choose_section' && activeStudent && !selectedSection && (
+          <div className="space-y-8 animate-fade-in w-full">
+            {/* Header */}
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Welcome back, {activeStudent.name.split(' ')[0]}.</h2>
+              <p className="text-sm text-zinc-400">Choose where you&apos;d like to go.</p>
+            </div>
+
+            {/* Section Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Daily Menu Ordering Card */}
+              <button
+                onClick={() => handleSectionSelect('daily_ordering')}
+                className="glass-card group relative p-8 rounded-2xl text-left cursor-pointer transition-colors focus:outline-none overflow-hidden"
+              >
+                <div className="space-y-4">
+                  <div className="w-14 h-14 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-7 h-7 text-zinc-300">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-xl font-bold text-zinc-100">Daily Menu Ordering</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed">Browse the daily menu and place your meal orders for the day.</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-400 group-hover:text-zinc-200 transition-colors pt-1">
+                    <span>Open</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+
+              {/* Hostlers Menu Card */}
+              <button
+                onClick={() => handleSectionSelect('hostlers_menu')}
+                className="glass-card group relative p-8 rounded-2xl text-left cursor-pointer transition-colors focus:outline-none overflow-hidden"
+              >
+                <div className="space-y-4">
+                  <div className="w-14 h-14 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-7 h-7 text-zinc-300">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75H16.5v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75H16.5v-.75z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-xl font-bold text-zinc-100">Hostlers Menu</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed">View your daily QR passes, check-in status, and manage biometrics.</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-400 group-hover:text-zinc-200 transition-colors pt-1">
+                    <span>Open</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Sign out link */}
+            <div className="text-center">
+              <button onClick={handleStudentLogout} className="text-xs text-zinc-500 hover:text-zinc-300 font-medium cursor-pointer transition-colors">
+                Sign out
+              </button>
+            </div>
+          </div>
+        )}
+
+        {authStep === 'choose_section' && selectedSection === 'daily_ordering' && activeStudent && (
+          <div className="space-y-6 animate-fade-in w-full">
+            {/* Header with back button */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSelectedSection(null)}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Daily Menu Ordering</h2>
+                <p className="text-xs text-zinc-400 font-medium mt-0.5">Browse and order your meals.</p>
+              </div>
+            </div>
+
+            {/* Placeholder Content */}
+            <div className="glass-card p-12 rounded-2xl flex flex-col items-center text-center space-y-5">
+              <div className="w-20 h-20 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-10 h-10 text-zinc-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-zinc-100">Coming Soon</h3>
+                <p className="text-sm text-zinc-400 max-w-sm leading-relaxed">Daily menu ordering is being built. You&apos;ll be able to browse the daily menu and pre-order meals from here.</p>
+              </div>
+              <button
+                onClick={() => setSelectedSection(null)}
+                className="mt-2 px-6 py-3 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-sm font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+
+            {/* Sign out link */}
+            <div className="text-center">
+              <button onClick={handleStudentLogout} className="text-xs text-zinc-500 hover:text-zinc-300 font-medium cursor-pointer transition-colors">
+                Sign out
+              </button>
+            </div>
+          </div>
+        )}
+
         {authStep === 'logged_in' && activeStudent && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-black p-6 rounded-2xl flex justify-between items-center border border-zinc-800/80 relative overflow-hidden">
@@ -577,7 +702,10 @@ export default function Home() {
                 <h3 className="text-lg font-bold text-zinc-100 leading-tight">{activeStudent.name}</h3>
                 <p className="text-sm text-zinc-400">ID: <span className="text-zinc-200 font-medium">{activeStudent.studentId}</span></p>
               </div>
-              <button onClick={handleStudentLogout} className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-300 hover:text-white text-xs font-bold transition-colors relative z-10 cursor-pointer">Sign Out</button>
+              <div className="flex gap-2 relative z-10">
+                <button onClick={() => { setAuthStep('choose_section'); setSelectedSection(null); }} className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-300 hover:text-white text-xs font-bold transition-colors cursor-pointer">Menu</button>
+                <button onClick={handleStudentLogout} className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-300 hover:text-white text-xs font-bold transition-colors cursor-pointer">Sign Out</button>
+              </div>
             </div>
 
             {!hasBiometrics && (
@@ -654,9 +782,11 @@ export default function Home() {
                             </button>
                           )}
                         </div>
-                        <div className="mt-3 text-sm text-zinc-400 text-center w-full capitalize">
-                          {dailyMenu[item.slot] || 'Menu not updated yet.'}
-                        </div>
+                        {dailyMenu[item.slot] && (
+                          <div className="mt-3 text-sm text-zinc-400 text-center w-full capitalize">
+                            {dailyMenu[item.slot]}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -712,9 +842,11 @@ export default function Home() {
                   <div className="animate-fade-in space-y-6">
                     <div className="text-center">
                       <h4 className="text-xl font-bold text-zinc-100">{selectedQrCode.name} Pass</h4>
-                      <p className="text-sm text-zinc-400 mt-1 capitalize">
-                        {dailyMenu[selectedQrCode.slot] || 'Menu not updated yet.'}
-                      </p>
+                      {dailyMenu[selectedQrCode.slot] && (
+                        <p className="text-sm text-zinc-400 mt-1 capitalize">
+                          {dailyMenu[selectedQrCode.slot]}
+                        </p>
+                      )}
                     </div>
                     <div className="flex justify-center bg-zinc-100 p-4 rounded-2xl shadow-inner mx-auto max-w-[240px]">
                       <img src={qrUrl} alt="Large QR Pass" className="w-full h-auto aspect-square" />

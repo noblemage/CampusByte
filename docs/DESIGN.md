@@ -80,7 +80,7 @@ These are fixed. Don't use alternatives.
 
 ### What the app never says
 
-No exclamation marks. No emoji in the UI. No "Oops", "Uh oh", "Great", "Success!", or any emotional filler. No "Are you sure?" confirmations. No passive voice in errors ("The pass could not be verified" → "Invalid or expired hash."). No over-explaining — if the label says "Breakfast", the placeholder doesn't need to elaborate.
+No exclamation marks. No emoji in the UI. No "Oops", "Uh oh", "Great", "Success!", or any emotional filler. No "Are you sure?" confirmations. No passive voice in errors ("The pass could not be verified" → "Invalid or expired hash."). No over-explaining — if the label says "Breakfast", the placeholder doesn't need to elaborate. If the daily menu is empty or has not been updated yet, hide the menu display entirely instead of showing a fallback placeholder message.
 
 ### Reference messages
 
